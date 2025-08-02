@@ -15,8 +15,8 @@ ARunnerCharacter::ARunnerCharacter()
 	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
 	SpringArmComponent->SetupAttachment(RootComponent);
 	SpringArmComponent->TargetArmLength = 600.0f;
-	SpringArmComponent->SetRelativeLocation(FVector(-200.0f, 0.0f, 100.0f));
-	SpringArmComponent->SetRelativeRotation(FRotator(-25.0f, 180.0f, 0.0f));
+	SpringArmComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 200.0f));
+	SpringArmComponent->SetRelativeRotation(FRotator(-25.0f, 0.0f, 0.0f));
 	SpringArmComponent->bUsePawnControlRotation = false;
 	SpringArmComponent->bInheritPitch = false;
 	SpringArmComponent->bInheritYaw = false;
@@ -50,6 +50,11 @@ void ARunnerCharacter::BeginPlay()
 	// Start in the middle lane
 	CurrentLane = 1;
 	TargetLanePosition = 0.0f;
+	
+	// Debug character setup
+	UE_LOG(LogTemp, Warning, TEXT("Character BeginPlay - Position: %s"), *GetActorLocation().ToString());
+	UE_LOG(LogTemp, Warning, TEXT("Character BeginPlay - Rotation: %s"), *GetActorRotation().ToString());
+	UE_LOG(LogTemp, Warning, TEXT("Character BeginPlay - Forward Vector: %s"), *GetActorForwardVector().ToString());
 	
 	// Ensure we have the correct default mesh location (in case it changed in Blueprint)
 	if (GetMesh())
