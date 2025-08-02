@@ -18,7 +18,12 @@ void AInfiniteTrackManager::BeginPlay()
 	// Start spawning forward from the manager's location
 	NextSpawnLocation = GetActorLocation();
 	
-	UE_LOG(LogTemp, Warning, TEXT("InfiniteTrackManager starting at location: %s"), *NextSpawnLocation.ToString());
+	
+	UE_LOG(LogTemp, Warning, TEXT("InfiniteTrackManager starting at location: %s"), 
+		*NextSpawnLocation.ToString());
+	
+	// Spawn starting segment under the player
+	SpawnStartingSegment();
 	
 	// Spawn initial segments ahead of the player
 	SpawnInitialSegments();
@@ -51,6 +56,31 @@ void AInfiniteTrackManager::Tick(float DeltaTime)
 	
 	// Cleanup old segments
 	CleanupOldSegments();
+}
+
+void AInfiniteTrackManager::SpawnStartingSegment()
+{
+	if (!TrackSegmentClass) return;
+
+	// Spawn segment centered under player
+	FVector StartingLocation = GetActorLocation();
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = this;
+	
+	ATrackSegment* StartingSegment = GetWorld()->SpawnActor<ATrackSegment>(
+		TrackSegmentClass,
+		StartingLocation,
+		FRotator::ZeroRotator,
+		SpawnParams
+	);
+
+	if (StartingSegment)
+	{
+		ActiveSegments.Add(StartingSegment);
+		NextSpawnLocation = StartingSegment->GetEndLocation();
+		UE_LOG(LogTemp, Warning, TEXT("Spawned starting segment under player"));
+	}
 }
 
 void AInfiniteTrackManager::SpawnInitialSegments()
@@ -93,18 +123,18 @@ void AInfiniteTrackManager::SpawnNextSegment()
 	{
 		ActiveSegments.Add(NewSegment);
 		
-		UE_LOG(LogTemp, Warning, TEXT("Successfully spawned segment at: %s"), *NewSegment->GetActorLocation().ToString());
+		UE_LOG(LogTemp, Warning, TEXT("Successfully spawned segment at: %s"), 
+			*NewSegment->GetActorLocation().ToString());
 		
 		// Select and apply pattern
 		FTrackPattern SelectedPattern = SelectPatternForDifficulty(TotalDistanceGenerated);
 		SpawnPatternOnSegment(NewSegment, SelectedPattern);
 		
 		// Update next spawn location and total distance
-		FVector OldNextLocation = NextSpawnLocation;
 		NextSpawnLocation = NewSegment->GetEndLocation();
 		TotalDistanceGenerated += NewSegment->SegmentLength;
 		
-		UE_LOG(LogTemp, Warning, TEXT("Next spawn location updated from %s to %s"), *OldNextLocation.ToString(), *NextSpawnLocation.ToString());
+		UE_LOG(LogTemp, Warning, TEXT("Next spawn location updated to %s"), *NextSpawnLocation.ToString());
 	}
 }
 

@@ -81,9 +81,9 @@ private:
 	float DashTimer = 0.0f;
 	float DashDuration = 0.3f;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	UCameraComponent* CameraComponent;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	USpringArmComponent* SpringArmComponent;
 };

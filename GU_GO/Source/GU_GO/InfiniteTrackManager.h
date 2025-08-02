@@ -72,6 +72,9 @@ public:
 
 	// Core spawning
 	UFUNCTION(BlueprintCallable, Category = "Track")
+	void SpawnStartingSegment();
+
+	UFUNCTION(BlueprintCallable, Category = "Track")
 	void SpawnInitialSegments();
 
 	UFUNCTION(BlueprintCallable, Category = "Track")
@@ -123,6 +126,7 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "State")
 	int32 CurrentDifficultyLevel = 0;
+
 
 private:
 	TArray<ATrackSegment*> ActiveSegments;
