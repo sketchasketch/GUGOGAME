@@ -23,22 +23,22 @@ public:
 	void HideGameOver();
 
 protected:
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
 	class UTextBlock* ScoreText;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
 	class UTextBlock* DistanceText;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
 	class UVerticalBox* GameOverPanel;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
 	class UTextBlock* FinalScoreText;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
 	class UButton* RestartButton;
 
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
 	class UButton* MainMenuButton;
 
 	virtual void NativeConstruct() override;

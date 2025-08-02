@@ -22,34 +22,13 @@ void ARunnerGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	UE_LOG(LogTemp, Warning, TEXT("GameMode BeginPlay - Starting Game"));
+	UE_LOG(LogTemp, Warning, TEXT("GameMode BeginPlay - Minimal Safe Start"));
 	
-	// FOR TESTING: Skip main menu and start game directly
+	// MINIMAL: Just set initial state - don't do complex operations
 	CurrentGameState = EGameState::MainMenu;
 	
-	// Auto-start the game for testing
-	FTimerHandle StartGameTimer;
-	GetWorld()->GetTimerManager().SetTimer(StartGameTimer, [this]()
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Auto-starting game for testing"));
-		StartGame();
-	}, 1.0f, false);
-	
-	// Comment out main menu for now
-	/*if (MainMenuWidgetClass)
-	{
-		APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-		if (PlayerController)
-		{
-			UUserWidget* MainMenu = CreateWidget<UUserWidget>(PlayerController, MainMenuWidgetClass);
-			if (MainMenu)
-			{
-				MainMenu->AddToViewport();
-				PlayerController->SetShowMouseCursor(true);
-				PlayerController->SetInputMode(FInputModeUIOnly());
-			}
-		}
-	}*/
+	// Don't access PlayerCharacter or create widgets here - too early in startup
+	UE_LOG(LogTemp, Warning, TEXT("GameMode initialized safely"));
 }
 
 void ARunnerGameMode::Tick(float DeltaTime)

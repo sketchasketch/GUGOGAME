@@ -89,6 +89,24 @@ void AObstacle::OnHitByPlayer(ARunnerCharacter* Player)
 			}
 			break;
 			
+		case EObstacleType::SpeedBoost:
+		case EObstacleType::SpeedDebuff:
+			// Apply speed effect and don't trigger game over
+			ApplySpeedEffect(Player);
+			bShouldTriggerGameOver = false;
+			break;
+			
+		case EObstacleType::Ramp:
+		case EObstacleType::HighPlane:
+			// Trigger elevation change and don't trigger game over
+			TriggerElevationChange(Player);
+			bShouldTriggerGameOver = false;
+			break;
+			
+		case EObstacleType::Wall:
+			// Wall always triggers game over unless player changes lanes
+			break;
+			
 		case EObstacleType::Static:
 		case EObstacleType::Moving:
 		default:
@@ -112,5 +130,51 @@ void AObstacle::OnCollisionBeginOverlap(UPrimitiveComponent* OverlappedComponent
 	if (ARunnerCharacter* Runner = Cast<ARunnerCharacter>(OtherActor))
 	{
 		OnHitByPlayer(Runner);
+	}
+}
+
+void AObstacle::ApplySpeedEffect(ARunnerCharacter* Player)
+{
+	if (!Player) return;
+
+	// Apply speed modification based on obstacle type
+	switch (ObstacleType)
+	{
+		case EObstacleType::SpeedBoost:
+			Player->ForwardSpeed *= SpeedModifier;
+			// TODO: Set timer to restore original speed after EffectDuration
+			break;
+			
+		case EObstacleType::SpeedDebuff:
+			Player->ForwardSpeed *= SpeedModifier; // Should be < 1.0 for debuff
+			// TODO: Set timer to restore original speed after EffectDuration
+			break;
+			
+		default:
+			// No speed effect for other obstacle types
+			break;
+	}
+}
+
+void AObstacle::TriggerElevationChange(ARunnerCharacter* Player)
+{
+	if (!Player) return;
+
+	// Handle elevation changes based on obstacle type
+	switch (ObstacleType)
+	{
+		case EObstacleType::Ramp:
+			// Move player to elevated position over time
+			// TODO: Implement smooth elevation transition
+			break;
+			
+		case EObstacleType::HighPlane:
+			// Player is now on elevated track
+			// TODO: Set player elevation state
+			break;
+			
+		default:
+			// No elevation change for other obstacle types
+			break;
 	}
 }

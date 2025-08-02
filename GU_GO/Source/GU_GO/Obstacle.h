@@ -7,10 +7,17 @@
 UENUM(BlueprintType)
 enum class EObstacleType : uint8
 {
-	Static     UMETA(DisplayName = "Static"),
-	Jumpable   UMETA(DisplayName = "Jumpable"),
-	Slideable  UMETA(DisplayName = "Slideable"),
-	Moving     UMETA(DisplayName = "Moving")
+	Static          UMETA(DisplayName = "Static"),
+	Jumpable        UMETA(DisplayName = "Jumpable"),
+	Slideable       UMETA(DisplayName = "Slideable"),
+	Moving          UMETA(DisplayName = "Moving"),
+	Wall            UMETA(DisplayName = "Wall"),           // Forces lane change
+	Ramp            UMETA(DisplayName = "Ramp"),           // Elevation change
+	HighPlane       UMETA(DisplayName = "High Plane"),    // Elevated track
+	SpeedBoost      UMETA(DisplayName = "Speed Boost"),   // Temporary speed up
+	SpeedDebuff     UMETA(DisplayName = "Speed Debuff"),  // Temporary slow down
+	DoubleJump      UMETA(DisplayName = "Double Jump"),   // Requires double jump
+	LongSlide       UMETA(DisplayName = "Long Slide")     // Extended slide obstacle
 };
 
 UCLASS()
@@ -39,8 +46,30 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float MoveDistance = 300.0f;
 
+	// New properties for enhanced obstacles
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle")
+	float ElevationOffset = 0.0f; // For ramps and high planes
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle")
+	float SpeedModifier = 1.0f; // For speed boosts/debuffs
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle")
+	float EffectDuration = 3.0f; // Duration for temporary effects
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle")
+	bool bBlocksAllLanes = false; // For walls that force lane changes
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacle")
+	bool bIsTemporaryEffect = false; // For speed boosts/debuffs
+
 	UFUNCTION(BlueprintCallable, Category = "Obstacle")
 	virtual void OnHitByPlayer(class ARunnerCharacter* Player);
+
+	UFUNCTION(BlueprintCallable, Category = "Obstacle")
+	virtual void ApplySpeedEffect(class ARunnerCharacter* Player);
+
+	UFUNCTION(BlueprintCallable, Category = "Obstacle")
+	virtual void TriggerElevationChange(class ARunnerCharacter* Player);
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
