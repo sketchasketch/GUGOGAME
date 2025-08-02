@@ -15,9 +15,15 @@ void AInfiniteTrackManager::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	// Start spawning forward from the manager's location
 	NextSpawnLocation = GetActorLocation();
-	// DON'T spawn segments immediately - wait for manual trigger
-	UE_LOG(LogTemp, Warning, TEXT("InfiniteTrackManager ready - awaiting manual activation"));
+	
+	UE_LOG(LogTemp, Warning, TEXT("InfiniteTrackManager starting at location: %s"), *NextSpawnLocation.ToString());
+	
+	// Spawn initial segments ahead of the player
+	SpawnInitialSegments();
+	
+	UE_LOG(LogTemp, Warning, TEXT("InfiniteTrackManager spawned %d initial segments"), InitialSegmentCount);
 }
 
 void AInfiniteTrackManager::Tick(float DeltaTime)
@@ -29,11 +35,17 @@ void AInfiniteTrackManager::Tick(float DeltaTime)
 	if (Player)
 	{
 		FVector PlayerLocation = Player->GetActorLocation();
-		float DistanceToNextSpawn = FVector::Dist(PlayerLocation, NextSpawnLocation);
 		
-		if (DistanceToNextSpawn < SegmentSpawnDistance)
+		// Calculate how far ahead we want to keep spawning  
+		float DesiredSpawnAheadDistance = SegmentSpawnDistance * 5; // Keep 5 segments ahead
+		float DistancePlayerToNextSpawn = NextSpawnLocation.X - PlayerLocation.X;
+		
+		// Spawn new segment if we're not far enough ahead
+		if (DistancePlayerToNextSpawn < DesiredSpawnAheadDistance)
 		{
 			SpawnNextSegment();
+			UE_LOG(LogTemp, Warning, TEXT("Spawning new segment. Player at X=%f, NextSpawn at X=%f"), 
+				PlayerLocation.X, NextSpawnLocation.X);
 		}
 	}
 	
@@ -51,10 +63,20 @@ void AInfiniteTrackManager::SpawnInitialSegments()
 
 void AInfiniteTrackManager::SpawnNextSegment()
 {
-	if (!TrackSegmentClass) return;
+	if (!TrackSegmentClass) 
+	{
+		UE_LOG(LogTemp, Error, TEXT("TrackSegmentClass is not set!"));
+		return;
+	}
 	
 	// Don't spawn if we have too many segments
-	if (ActiveSegments.Num() >= MaxActiveSegments) return;
+	if (ActiveSegments.Num() >= MaxActiveSegments) 
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Max segments reached: %d"), ActiveSegments.Num());
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Spawning segment %d at location: %s"), ActiveSegments.Num() + 1, *NextSpawnLocation.ToString());
 
 	// Spawn new segment
 	FActorSpawnParameters SpawnParams;
@@ -71,13 +93,18 @@ void AInfiniteTrackManager::SpawnNextSegment()
 	{
 		ActiveSegments.Add(NewSegment);
 		
+		UE_LOG(LogTemp, Warning, TEXT("Successfully spawned segment at: %s"), *NewSegment->GetActorLocation().ToString());
+		
 		// Select and apply pattern
 		FTrackPattern SelectedPattern = SelectPatternForDifficulty(TotalDistanceGenerated);
 		SpawnPatternOnSegment(NewSegment, SelectedPattern);
 		
 		// Update next spawn location and total distance
+		FVector OldNextLocation = NextSpawnLocation;
 		NextSpawnLocation = NewSegment->GetEndLocation();
 		TotalDistanceGenerated += NewSegment->SegmentLength;
+		
+		UE_LOG(LogTemp, Warning, TEXT("Next spawn location updated from %s to %s"), *OldNextLocation.ToString(), *NextSpawnLocation.ToString());
 	}
 }
 
@@ -182,6 +209,10 @@ void AInfiniteTrackManager::SpawnPatternOnSegment(ATrackSegment* Segment, const 
 			GetWorld()->SpawnActor<ACollectible>(CoinClass, SpawnLocation, FRotator::ZeroRotator);
 		}
 	}
+	
+	// Spawn simple horizon buildings for this segment
+	Segment->SpawnSimpleHorizonBuildings();
+	UE_LOG(LogTemp, Warning, TEXT("Spawned simple horizon buildings for segment at: %s"), *SegmentLocation.ToString());
 }
 
 void AInfiniteTrackManager::SpawnCoinArc(FVector StartLocation, FVector EndLocation, int32 CoinCount)

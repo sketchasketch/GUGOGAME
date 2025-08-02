@@ -41,6 +41,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Track")
 	void DestroySegment();
 
+	UFUNCTION(BlueprintCallable, Category = "Spawning")
+	void SpawnSimpleHorizonBuildings();
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class USceneComponent* RootSceneComponent;
@@ -62,6 +65,22 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacles")
 	float MinObstacleSpacing = 300.0f;
+
+	// Simplified Spawn Point System - no TArrays for now
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
+	bool bSpawnHorizonBuildings = true;
+
+	// Simplified Building System - single asset refs instead of arrays
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Buildings")
+	TSubclassOf<AActor> BasicBuildingAsset;
+
+	// Simplified Horizon Settings
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Horizon")
+	int32 BuildingsPerSide = 3;
+
+	// Coin Run Patterns
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Coins")
+	TSubclassOf<class ACoin> CoinClass;
 
 private:
 	UFUNCTION()

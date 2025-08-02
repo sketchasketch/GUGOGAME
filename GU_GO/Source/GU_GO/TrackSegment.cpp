@@ -5,6 +5,7 @@
 #include "Obstacle.h"
 #include "RunnerCharacter.h"
 #include "TrackSpawner.h"
+#include "CoinCollectionSystem.h"
 #include "Kismet/GameplayStatics.h"
 
 ATrackSegment::ATrackSegment()
@@ -113,10 +114,7 @@ void ATrackSegment::DestroySegment()
 	// Destroy all spawned obstacles
 	for (AActor* Obstacle : SpawnedObstacles)
 	{
-		if (Obstacle)
-		{
-			Obstacle->Destroy();
-		}
+		if (Obstacle) Obstacle->Destroy();
 	}
 	SpawnedObstacles.Empty();
 
@@ -140,5 +138,26 @@ void ATrackSegment::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedCompone
 				Spawner->SpawnNextSegment();
 			}
 		}
+	}
+}
+
+void ATrackSegment::SpawnSimpleHorizonBuildings()
+{
+	if (!BasicBuildingAsset || !bSpawnHorizonBuildings) return;
+
+	UE_LOG(LogTemp, Warning, TEXT("Spawning simple horizon buildings"));
+
+	FVector SegmentLocation = GetActorLocation();
+	
+	// Spawn a few buildings on each side
+	for (int32 i = 0; i < BuildingsPerSide; i++)
+	{
+		// Left side buildings
+		FVector LeftSpawnLocation = SegmentLocation + FVector(i * 600.0f, -2000.0f, 0.0f);
+		GetWorld()->SpawnActor<AActor>(BasicBuildingAsset, LeftSpawnLocation, FRotator::ZeroRotator);
+		
+		// Right side buildings  
+		FVector RightSpawnLocation = SegmentLocation + FVector(i * 600.0f, 2000.0f, 0.0f);
+		GetWorld()->SpawnActor<AActor>(BasicBuildingAsset, RightSpawnLocation, FRotator::ZeroRotator);
 	}
 }
