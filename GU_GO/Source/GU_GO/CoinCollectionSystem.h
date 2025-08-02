@@ -4,12 +4,9 @@
 #include "GameFramework/Actor.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "ObstacleTypes.h"
 #include "CoinCollectionSystem.generated.h"
 
 class ARunnerCharacter;
-class UNiagaraComponent;
-class UCurveFloat;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnCoinCollected, class ACoin*, Coin, ARunnerCharacter*, Character, int32, Value);
 
@@ -124,8 +121,7 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     class UStaticMeshComponent* CoinMesh;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-    class UNiagaraComponent* CoinEffect;
+    // Note: Visual effects removed for simplicity - following codebase pattern
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     class USphereComponent* MagnetDetection;
@@ -168,8 +164,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory")
     float TrajectoryDuration = 1.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory")
-    class UCurveFloat* TrajectoryCurve;
+    // Note: Trajectory curves removed for simplicity
 
     // Magnet System
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Magnet")
@@ -298,12 +293,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configuration")
     TMap<ECoinType, UStaticMesh*> CoinMeshes;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Configuration")
-    TMap<ECoinType, class UNiagaraSystem*> CoinEffects;
+    // Note: Visual effects removed for simplicity - following codebase pattern
 
-    // Trajectory Calculation
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory")
-    class UCurveFloat* DefaultTrajectoryCurve;
+    // Note: Trajectory curves removed for simplicity - following codebase pattern
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Trajectory")
     float DefaultTrajectoryHeight = 200.0f;
