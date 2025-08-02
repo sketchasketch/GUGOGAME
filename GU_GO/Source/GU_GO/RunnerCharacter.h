@@ -1,0 +1,89 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Character.h"
+#include "RunnerCharacter.generated.h"
+
+// Forward declarations
+class UCameraComponent;
+class USpringArmComponent;
+
+UCLASS()
+class GU_GO_API ARunnerCharacter : public ACharacter
+{
+	GENERATED_BODY()
+
+public:
+	ARunnerCharacter();
+
+protected:
+	virtual void BeginPlay() override;
+
+public:	
+	virtual void Tick(float DeltaTime) override;
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float ForwardSpeed = 800.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float LaneWidth = 300.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float LaneChangeSpeed = 500.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float JumpHeight = 600.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float SlideHeight = 50.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+	float SlideDuration = 1.0f;
+
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	bool IsSliding() const { return bIsSliding; }
+
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	bool IsInAir() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	float GetCurrentSpeed() const { return ForwardSpeed; }
+
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	int32 GetCurrentLane() const { return CurrentLane; }
+
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	bool bIsDashingLeft = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	bool bIsDashingRight = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	float LaneChangeProgress = 0.0f;
+
+private:
+	void MoveLeft();
+	void MoveRight();
+	void StartJump();
+	void StartSlide();
+	void StopSlide();
+	void OnPausePressed();
+
+	int32 CurrentLane = 1; // 0 = left, 1 = middle, 2 = right
+	float TargetLanePosition = 0.0f;
+	bool bIsSliding = false;
+	float SlideTimer = 0.0f;
+	float DefaultCapsuleHalfHeight;
+	FVector DefaultMeshRelativeLocation;
+	
+	// Dash animation timers
+	float DashTimer = 0.0f;
+	float DashDuration = 0.3f;
+
+	UPROPERTY()
+	UCameraComponent* CameraComponent;
+
+	UPROPERTY()
+	USpringArmComponent* SpringArmComponent;
+};
