@@ -36,7 +36,7 @@ public:
 	float JumpHeight = 600.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float SlideHeight = 50.0f;
+	float SlideHeight = 25.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float SlideDuration = 1.0f;
@@ -62,6 +62,34 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Animation")
 	float LaneChangeProgress = 0.0f;
 
+	// Animation State Variables
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	float AnimSpeed = 0.0f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	bool bIsGrounded = true;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	bool bJumpPressed = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	bool bSlidePressed = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	bool bIsDashing = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	float DashDirection = 0.0f; // -1 for left, 1 for right, 0 for none
+
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	bool bIsSliding = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	bool bIsFalling = false;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	float VerticalVelocity = 0.0f;
+
 private:
 	void MoveLeft();
 	void MoveRight();
@@ -72,7 +100,6 @@ private:
 
 	int32 CurrentLane = 1; // 0 = left, 1 = middle, 2 = right
 	float TargetLanePosition = 0.0f;
-	bool bIsSliding = false;
 	float SlideTimer = 0.0f;
 	float DefaultCapsuleHalfHeight;
 	FVector DefaultMeshRelativeLocation;
@@ -86,4 +113,7 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 	USpringArmComponent* SpringArmComponent;
+
+	UPROPERTY(VisibleAnywhere, Category = "Collision")
+	class UBoxComponent* SlideCollisionBox;
 };

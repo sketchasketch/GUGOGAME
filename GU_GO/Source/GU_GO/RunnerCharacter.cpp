@@ -2,6 +2,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/BoxComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/World.h"
 #include "RunnerGameMode.h"
@@ -27,6 +28,18 @@ ARunnerCharacter::ARunnerCharacter()
 	// Set up the camera component
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	CameraComponent->SetupAttachment(SpringArmComponent);
+
+	// Set up obstacle collision box (handles all obstacle detection)
+	SlideCollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("ObstacleCollisionBox"));
+	SlideCollisionBox->SetupAttachment(RootComponent);
+	SlideCollisionBox->SetBoxExtent(FVector(40.0f, 40.0f, 90.0f)); // Full height for standing
+	SlideCollisionBox->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f)); // Center on capsule
+	SlideCollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	SlideCollisionBox->SetCollisionObjectType(ECollisionChannel::ECC_Pawn);
+	SlideCollisionBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+	
+	// Make main capsule ignore obstacles - only handles movement and ground
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Ignore);
 
 	// Configure character movement
 	GetCharacterMovement()->bOrientRotationToMovement = false;
@@ -101,6 +114,32 @@ void ARunnerCharacter::Tick(float DeltaTime)
 			bIsDashingRight = false;
 		}
 	}
+
+	// Update animation variables every frame
+	AnimSpeed = GetVelocity().Size();
+	bIsGrounded = GetCharacterMovement()->IsMovingOnGround();
+	bIsFalling = GetCharacterMovement()->IsFalling();
+	VerticalVelocity = GetVelocity().Z;
+	
+	// Update dash state
+	bIsDashing = bIsDashingLeft || bIsDashingRight;
+	if (bIsDashingLeft)
+		DashDirection = -1.0f;
+	else if (bIsDashingRight)
+		DashDirection = 1.0f;
+	else
+		DashDirection = 0.0f;
+	
+	// Clear input flags after animation system has had a chance to read them
+	// Only clear if we've actually started the action
+	if (bJumpPressed && !bIsGrounded)
+	{
+		bJumpPressed = false;
+	}
+	if (bSlidePressed && bIsSliding)
+	{
+		bSlidePressed = false;
+	}
 }
 
 void ARunnerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -116,6 +155,9 @@ void ARunnerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
 void ARunnerCharacter::MoveLeft()
 {
+	// Can't change lanes while sliding
+	if (bIsSliding) return;
+	
 	// Debug: Print to screen
 	UE_LOG(LogTemp, Warning, TEXT("MoveLeft called! Current Lane: %d"), CurrentLane);
 	
@@ -135,6 +177,9 @@ void ARunnerCharacter::MoveLeft()
 
 void ARunnerCharacter::MoveRight()
 {
+	// Can't change lanes while sliding
+	if (bIsSliding) return;
+	
 	// Debug: Print to screen
 	UE_LOG(LogTemp, Warning, TEXT("MoveRight called! Current Lane: %d"), CurrentLane);
 	
@@ -161,7 +206,9 @@ void ARunnerCharacter::StartJump()
 {
 	if (!bIsSliding && GetCharacterMovement()->IsMovingOnGround())
 	{
+		bJumpPressed = true;
 		Jump();
+		UE_LOG(LogTemp, Warning, TEXT("Jump started!"));
 	}
 }
 
@@ -169,35 +216,15 @@ void ARunnerCharacter::StartSlide()
 {
 	if (!bIsSliding && GetCharacterMovement()->IsMovingOnGround())
 	{
+		bSlidePressed = true;
 		bIsSliding = true;
 		SlideTimer = SlideDuration;
 		
-		UE_LOG(LogTemp, Warning, TEXT("Starting slide - Default capsule height: %f, Slide height: %f"), DefaultCapsuleHalfHeight, SlideHeight);
+		// Shrink collision box for sliding under obstacles
+		SlideCollisionBox->SetBoxExtent(FVector(40.0f, 40.0f, 25.0f)); // Short box for sliding
+		SlideCollisionBox->SetRelativeLocation(FVector(0.0f, 0.0f, -65.0f)); // Move down
 		
-		// Store current world location to maintain ground contact
-		FVector CurrentWorldLocation = GetActorLocation();
-		
-		// Calculate how much the capsule will shrink
-		float CapsuleHeightDifference = DefaultCapsuleHalfHeight - SlideHeight;
-		
-		// Reduce capsule height for sliding
-		GetCapsuleComponent()->SetCapsuleHalfHeight(SlideHeight);
-		
-		// Move the actor up by half the height difference to keep bottom of capsule at same level
-		FVector NewWorldLocation = CurrentWorldLocation;
-		NewWorldLocation.Z += CapsuleHeightDifference;
-		SetActorLocation(NewWorldLocation, true); // Use sweep to avoid penetration
-		
-		// Keep mesh at proper position relative to capsule bottom
-		if (GetMesh())
-		{
-			FVector NewMeshLocation = DefaultMeshRelativeLocation;
-			// Adjust mesh to account for smaller capsule (move mesh down relative to capsule center)
-			NewMeshLocation.Z = DefaultMeshRelativeLocation.Z - CapsuleHeightDifference;
-			GetMesh()->SetRelativeLocation(NewMeshLocation);
-		}
-		
-		UE_LOG(LogTemp, Warning, TEXT("Slide started - Moved actor up by: %f"), CapsuleHeightDifference);
+		UE_LOG(LogTemp, Warning, TEXT("Slide started - Using slide collision box"));
 	}
 }
 
@@ -207,29 +234,11 @@ void ARunnerCharacter::StopSlide()
 	{
 		bIsSliding = false;
 		
-		UE_LOG(LogTemp, Warning, TEXT("Stopping slide - Restoring to default capsule height: %f"), DefaultCapsuleHalfHeight);
+		// Restore full collision box for standing
+		SlideCollisionBox->SetBoxExtent(FVector(40.0f, 40.0f, 90.0f)); // Full height for standing
+		SlideCollisionBox->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f)); // Center on capsule
 		
-		// Store current world location
-		FVector CurrentWorldLocation = GetActorLocation();
-		
-		// Calculate how much we need to move the actor down
-		float CapsuleHeightDifference = DefaultCapsuleHalfHeight - SlideHeight;
-		
-		// Restore capsule height
-		GetCapsuleComponent()->SetCapsuleHalfHeight(DefaultCapsuleHalfHeight);
-		
-		// Move the actor down to maintain proper ground contact
-		FVector NewWorldLocation = CurrentWorldLocation;
-		NewWorldLocation.Z -= CapsuleHeightDifference;
-		SetActorLocation(NewWorldLocation, true); // Use sweep to avoid penetration
-		
-		// Restore mesh to original relative position
-		if (GetMesh())
-		{
-			GetMesh()->SetRelativeLocation(DefaultMeshRelativeLocation);
-		}
-		
-		UE_LOG(LogTemp, Warning, TEXT("Slide stopped - Moved actor down by: %f"), CapsuleHeightDifference);
+		UE_LOG(LogTemp, Warning, TEXT("Slide stopped - Using normal collision capsule"));
 	}
 }
 

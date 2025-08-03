@@ -45,6 +45,9 @@ void AInfiniteTrackManager::Tick(float DeltaTime)
 		float DesiredSpawnAheadDistance = SegmentSpawnDistance * 5; // Keep 5 segments ahead
 		float DistancePlayerToNextSpawn = NextSpawnLocation.X - PlayerLocation.X;
 		
+		UE_LOG(LogTemp, Warning, TEXT("Track Check: Player=%f, NextSpawn=%f, Distance=%f, Desired=%f, Active=%d"), 
+			PlayerLocation.X, NextSpawnLocation.X, DistancePlayerToNextSpawn, DesiredSpawnAheadDistance, ActiveSegments.Num());
+		
 		// Spawn new segment if we're not far enough ahead
 		if (DistancePlayerToNextSpawn < DesiredSpawnAheadDistance)
 		{
@@ -99,11 +102,10 @@ void AInfiniteTrackManager::SpawnNextSegment()
 		return;
 	}
 	
-	// Don't spawn if we have too many segments
+	// Log segment count but don't enforce arbitrary limit - cleanup should handle this
 	if (ActiveSegments.Num() >= MaxActiveSegments) 
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Max segments reached: %d"), ActiveSegments.Num());
-		return;
+		UE_LOG(LogTemp, Error, TEXT("WARNING: %d segments active, cleanup might not be working!"), ActiveSegments.Num());
 	}
 
 	UE_LOG(LogTemp, Warning, TEXT("Spawning segment %d at location: %s"), ActiveSegments.Num() + 1, *NextSpawnLocation.ToString());
@@ -154,6 +156,8 @@ void AInfiniteTrackManager::CleanupOldSegments()
 			
 			if (Distance > SegmentDestroyDistance)
 			{
+				UE_LOG(LogTemp, Warning, TEXT("Destroying segment: Player X=%f, Segment X=%f, Distance=%f"), 
+					PlayerLocation.X, ActiveSegments[i]->GetActorLocation().X, Distance);
 				ActiveSegments[i]->DestroySegment();
 				ActiveSegments.RemoveAt(i);
 			}
