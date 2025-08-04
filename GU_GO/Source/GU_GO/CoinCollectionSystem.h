@@ -135,6 +135,10 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Coin")
     bool bIsCollected = false;
+    
+    // Collection animation
+    bool bIsBeingCollected = false;
+    float CollectionStartTime = 0.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Coin")
     bool bCanBeMagnetized = true;
@@ -185,6 +189,9 @@ public:
 
     UPROPERTY(BlueprintReadOnly, Category = "Pool")
     bool bIsInUse = false;
+    
+    // Animation State (public for external setup)
+    FVector BobOrigin = FVector::ZeroVector;
 
     // Events
     UPROPERTY(BlueprintAssignable, Category = "Events")
@@ -253,7 +260,6 @@ private:
     float TrajectoryStartTime = 0.0f;
     float TrajectoryCurrentTime = 0.0f;
     FVector InitialLocation = FVector::ZeroVector;
-    FVector BobOrigin = FVector::ZeroVector;
     float IdleTime = 0.0f;
     bool bTrajectoryActive = false;
 };

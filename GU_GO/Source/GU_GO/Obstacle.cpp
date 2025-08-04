@@ -10,16 +10,15 @@ AObstacle::AObstacle()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	// Create mesh component
+	// Create mesh component - this handles ALL collision
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
 	RootComponent = MeshComponent;
-
-	// Create collision box
-	CollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("CollisionBox"));
-	CollisionBox->SetupAttachment(RootComponent);
-	CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	CollisionBox->SetCollisionResponseToAllChannels(ECR_Ignore);
-	CollisionBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	
+	// Set up mesh collision for obstacle detection
+	MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	MeshComponent->SetCollisionObjectType(ECollisionChannel::ECC_WorldStatic);
+	MeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
+	MeshComponent->SetNotifyRigidBodyCollision(true); // Enable hit events on mesh
 }
 
 void AObstacle::BeginPlay()
@@ -28,8 +27,12 @@ void AObstacle::BeginPlay()
 	
 	StartLocation = GetActorLocation();
 	
-	// Bind collision event
-	CollisionBox->OnComponentBeginOverlap.AddDynamic(this, &AObstacle::OnCollisionBeginOverlap);
+	// Bind collision events to the MESH component
+	MeshComponent->OnComponentBeginOverlap.AddDynamic(this, &AObstacle::OnCollisionBeginOverlap);
+	MeshComponent->OnComponentHit.AddDynamic(this, &AObstacle::OnCollisionHit);
+	
+	UE_LOG(LogTemp, Warning, TEXT("OBSTACLE_READY: %s mesh collision enabled at %.1f,%.1f,%.1f"), 
+		*GetName(), GetActorLocation().X, GetActorLocation().Y, GetActorLocation().Z);
 }
 
 void AObstacle::Tick(float DeltaTime)
@@ -61,14 +64,22 @@ void AObstacle::OnHitByPlayer(ARunnerCharacter* Player)
 	if (!Player) return;
 
 	bool bShouldTriggerGameOver = true;
+	FString ActionResult = "GAME OVER";
+
+	UE_LOG(LogTemp, Error, TEXT("OBSTACLE_LOGIC: %s hit by player (Type=%s, IsSliding=%s, IsInAir=%s)"), 
+		*GetName(), 
+		*UEnum::GetValueAsString(ObstacleType),
+		Player->IsSliding() ? TEXT("YES") : TEXT("NO"),
+		Player->IsInAir() ? TEXT("YES") : TEXT("NO"));
 
 	// Check if player can avoid the obstacle
 	switch (ObstacleType)
 	{
 		case EObstacleType::Jumpable:
-			if (!Player->GetCharacterMovement()->IsMovingOnGround())
+			if (Player->IsInAir()) // Player is jumping
 			{
 				bShouldTriggerGameOver = false;
+				ActionResult = "SUCCESS - JUMPED";
 				// Award bonus points for successfully jumping
 				if (ARunnerGameMode* GameMode = Cast<ARunnerGameMode>(GetWorld()->GetAuthGameMode()))
 				{
@@ -81,6 +92,7 @@ void AObstacle::OnHitByPlayer(ARunnerCharacter* Player)
 			if (Player->IsSliding()) // Player is sliding
 			{
 				bShouldTriggerGameOver = false;
+				ActionResult = "SUCCESS - SLID UNDER";
 				// Award bonus points for successfully sliding
 				if (ARunnerGameMode* GameMode = Cast<ARunnerGameMode>(GetWorld()->GetAuthGameMode()))
 				{
@@ -94,6 +106,7 @@ void AObstacle::OnHitByPlayer(ARunnerCharacter* Player)
 			// Apply speed effect and don't trigger game over
 			ApplySpeedEffect(Player);
 			bShouldTriggerGameOver = false;
+			ActionResult = "SPEED EFFECT APPLIED";
 			break;
 			
 		case EObstacleType::Ramp:
@@ -101,18 +114,31 @@ void AObstacle::OnHitByPlayer(ARunnerCharacter* Player)
 			// Trigger elevation change and don't trigger game over
 			TriggerElevationChange(Player);
 			bShouldTriggerGameOver = false;
+			ActionResult = "ELEVATION CHANGE";
 			break;
 			
 		case EObstacleType::Wall:
 			// Wall always triggers game over unless player changes lanes
+			ActionResult = "HIT WALL";
 			break;
 			
 		case EObstacleType::Static:
 		case EObstacleType::Moving:
 		default:
 			// Always trigger game over for static/moving obstacles
+			ActionResult = "HIT STATIC OBSTACLE";
 			break;
 	}
+
+	// Visual feedback
+	if (GEngine)
+	{
+		FColor ResultColor = bShouldTriggerGameOver ? FColor::Red : FColor::Green;
+		GEngine->AddOnScreenDebugMessage(-1, 2.0f, ResultColor, 
+			FString::Printf(TEXT("%s: %s"), *GetName(), *ActionResult), true, FVector2D(1.5f, 1.5f));
+	}
+
+	UE_LOG(LogTemp, Error, TEXT("OBSTACLE_RESULT: %s - %s"), *GetName(), *ActionResult);
 
 	if (bShouldTriggerGameOver)
 	{
@@ -127,8 +153,27 @@ void AObstacle::OnHitByPlayer(ARunnerCharacter* Player)
 void AObstacle::OnCollisionBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	UE_LOG(LogTemp, Warning, TEXT("OBSTACLE_OVERLAP: %s overlapped by %s"), 
+		*GetName(), OtherActor ? *OtherActor->GetName() : TEXT("NULL"));
+	
 	if (ARunnerCharacter* Runner = Cast<ARunnerCharacter>(OtherActor))
 	{
+		UE_LOG(LogTemp, Error, TEXT("OBSTACLE_HIT_OVERLAP: %s hit by player"), *GetName());
+		OnHitByPlayer(Runner);
+	}
+}
+
+void AObstacle::OnCollisionHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, 
+	FVector NormalImpulse, const FHitResult& Hit)
+{
+	UE_LOG(LogTemp, Error, TEXT("OBSTACLE_HIT: %s hit by %s (Component: %s)"), 
+		*GetName(), 
+		OtherActor ? *OtherActor->GetName() : TEXT("NULL"),
+		OtherComponent ? *OtherComponent->GetName() : TEXT("NULL"));
+	
+	if (ARunnerCharacter* Runner = Cast<ARunnerCharacter>(OtherActor))
+	{
+		UE_LOG(LogTemp, Error, TEXT("OBSTACLE_HIT_CONFIRMED: %s hit by player via HIT event"), *GetName());
 		OnHitByPlayer(Runner);
 	}
 }

@@ -45,6 +45,26 @@ public:
 	// Treadmill system - player locked to starting position
 	FVector StartingPosition;
 	
+	// Speed progression system
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
+	float BaseSpeed = 600.0f; // Starting treadmill speed (faster for better gameplay)
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
+	float MaxSpeed = 2400.0f; // Maximum treadmill speed
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
+	float SpeedIncreaseRate = 50.0f; // Units/second increase per minute
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Speed")
+	float CurrentGameSpeed = 600.0f; // Current speed (updates over time)
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+	float StepsPerSecond = 2.5f; // Default run animation pace (2.5 steps per second)
+	
+	// Animation state control
+	UPROPERTY(BlueprintReadOnly, Category = "Animation")
+	bool bIsIdle = true; // True during countdown, false when running
+	
 	// World Origin Rebasing - prevents coordinate overflow in infinite running
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float WorldShiftDistance = 50000.0f; // Distance before shifting world origin
@@ -67,6 +87,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	bool IsInAir() const;
+	
+	// Collision handling for obstacles
+	UFUNCTION()
+	void OnObstacleHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComponent, FVector NormalImpulse, const FHitResult& Hit);
 
 	UFUNCTION(BlueprintCallable, Category = "Movement")
 	float GetCurrentSpeed() const { return ForwardSpeed; }

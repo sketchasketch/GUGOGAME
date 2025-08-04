@@ -8,17 +8,23 @@ ACoin::ACoin()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	// Create collision sphere
+	// Create collision sphere - overlap only, no physical collision
 	CollectionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollectionSphere"));
 	RootComponent = CollectionSphere;
 	CollectionSphere->SetSphereRadius(50.0f);
 	CollectionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CollectionSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
 	CollectionSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	
+	// Ensure no physical collision - coin should be "ghost" to player movement
+	CollectionSphere->SetCollisionObjectType(ECC_WorldDynamic);
+	CollectionSphere->SetGenerateOverlapEvents(true);
 
-	// Create mesh
+	// Create mesh - no collision, visual only
 	CoinMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CoinMesh"));
 	CoinMesh->SetupAttachment(RootComponent);
+	CoinMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	CoinMesh->SetGenerateOverlapEvents(false);
 
 	// Create magnet detection
 	MagnetDetection = CreateDefaultSubobject<USphereComponent>(TEXT("MagnetDetection"));
@@ -50,6 +56,30 @@ void ACoin::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
+	// Handle collection animation
+	if (bIsBeingCollected)
+	{
+		float AnimationTime = GetWorld()->GetTimeSeconds() - CollectionStartTime;
+		float AnimationDuration = 1.0f;
+		
+		if (AnimationTime < AnimationDuration)
+		{
+			// Float upward and fade out
+			float Progress = AnimationTime / AnimationDuration;
+			FVector CurrentLocation = GetActorLocation();
+			FVector TargetLocation = CurrentLocation + FVector(0, 0, 200.0f * Progress);
+			SetActorLocation(TargetLocation);
+			
+			// Fade out
+			if (CoinMesh)
+			{
+				float Alpha = 1.0f - Progress;
+				CoinMesh->SetVisibility(Alpha > 0.1f);
+			}
+		}
+		return;
+	}
+	
 	if (bIsCollected) return;
 	
 	UpdateIdleAnimation(DeltaTime);
@@ -72,16 +102,30 @@ void ACoin::CollectCoin(ARunnerCharacter* Character)
 	bIsCollected = true;
 	OnCoinCollected.Broadcast(this, Character, CoinValue);
 	
-	// TODO: Play collection effect
+	// CRITICAL: Actually add coin to player's collection
+	Character->CollectCoin();
 	
-	if (bIsPooled)
+	UE_LOG(LogTemp, Warning, TEXT("COIN_COLLECTED: Player now has %d coins, Value=%d"), 
+		Character->CoinsCollected, CoinValue);
+	
+	// Start collection animation - float upward
+	bIsBeingCollected = true;
+	CollectionStartTime = GetWorld()->GetTimeSeconds();
+	SetActorTickEnabled(true); // Re-enable tick for animation
+	
+	// Delay destruction to allow animation
+	FTimerHandle DestroyTimer;
+	GetWorld()->GetTimerManager().SetTimer(DestroyTimer, [this]()
 	{
-		ReturnToPool();
-	}
-	else
-	{
-		Destroy();
-	}
+		if (bIsPooled)
+		{
+			ReturnToPool();
+		}
+		else
+		{
+			Destroy();
+		}
+	}, 1.0f, false); // 1 second delay for animation
 }
 
 void ACoin::StartMagnetAttraction(ARunnerCharacter* Target)
@@ -202,14 +246,21 @@ void ACoin::UpdateIdleAnimation(float DeltaTime)
 {
 	IdleTime += DeltaTime;
 	
-	// Rotate coin
+	// Rotate coin around Z-axis
 	FRotator NewRotation = GetActorRotation();
 	NewRotation.Yaw += RotationSpeed * DeltaTime;
 	SetActorRotation(NewRotation);
 	
-	// Bob up and down
-	FVector NewLocation = BobOrigin;
-	NewLocation.Z += FMath::Sin(IdleTime * BobSpeed) * BobHeight;
+	// Bob up and down relative to current position (preserves attachment to track)
+	if (BobOrigin.IsZero())
+	{
+		BobOrigin = GetActorLocation(); // Initialize if not set
+	}
+	
+	// Only apply bobbing in Z (vertical) direction to preserve track attachment
+	FVector CurrentLocation = GetActorLocation();
+	FVector NewLocation = CurrentLocation;
+	NewLocation.Z = BobOrigin.Z + FMath::Sin(IdleTime * BobSpeed) * BobHeight;
 	SetActorLocation(NewLocation);
 }
 

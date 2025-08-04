@@ -46,6 +46,16 @@ void AInfiniteTrackManager::Tick(float DeltaTime)
 	// Treadmill system: move track backward and recycle segments
 	MoveTreadmill(DeltaTime);
 	RecycleSegmentsBehindPlayer();
+	
+	// Update fading for all segments
+	float PlayerX = GetPlayerXPosition();
+	for (ATrackSegment* Segment : SegmentPool)
+	{
+		if (Segment && IsValid(Segment))
+		{
+			Segment->UpdateFade(PlayerX);
+		}
+	}
 }
 
 void AInfiniteTrackManager::CreateSegmentPool()
@@ -84,8 +94,23 @@ void AInfiniteTrackManager::CreateSegmentPool()
 
 void AInfiniteTrackManager::MoveTreadmill(float DeltaTime)
 {
-	// Move all segments backward at treadmill speed
-	FVector BackwardMovement = FVector(-TreadmillSpeed * DeltaTime, 0.0f, 0.0f);
+	// Get dynamic speed from player (speed progression)
+	float CurrentSpeed = TreadmillSpeed; // Default fallback
+	if (PlayerCharacter.IsValid())
+	{
+		CurrentSpeed = PlayerCharacter->CurrentGameSpeed;
+	}
+	
+	// Debug: Log speed changes
+	static float LastLoggedSpeed = -1.0f;
+	if (FMath::Abs(CurrentSpeed - LastLoggedSpeed) > 10.0f || CurrentSpeed == 0.0f)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TREADMILL_SPEED: %.1f units/sec"), CurrentSpeed);
+		LastLoggedSpeed = CurrentSpeed;
+	}
+	
+	// Move all segments backward at current game speed
+	FVector BackwardMovement = FVector(-CurrentSpeed * DeltaTime, 0.0f, 0.0f);
 	
 	for (ATrackSegment* Segment : SegmentPool)
 	{
@@ -115,7 +140,17 @@ void AInfiniteTrackManager::RecycleSegmentsBehindPlayer()
 			if (FrontSegment)
 			{
 				FVector NewPosition = FrontSegment->GetEndLocation();
+				
+				// Clear old obstacles and coins before repositioning
+				SegmentToCheck->ClearObstacles();
+				SegmentToCheck->ClearCoins();
+				
+				// Move segment to new position
 				SegmentToCheck->SetActorLocation(NewPosition);
+				
+				// Spawn new obstacles and coins at the new position
+				SegmentToCheck->SpawnObstacles();
+				SegmentToCheck->SpawnCoinRuns();
 				
 				UE_LOG(LogTemp, Warning, TEXT("RECYCLED_SEGMENT: Index=%d, From=%.1f To=%.1f"), 
 					NextRecycleIndex, SegmentEndX, NewPosition.X);
