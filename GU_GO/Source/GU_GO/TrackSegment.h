@@ -44,6 +44,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Spawning")
 	void SpawnSimpleHorizonBuildings();
 
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class USceneComponent* RootSceneComponent;
@@ -51,8 +52,8 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class UStaticMeshComponent* FloorMesh;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	class UBoxComponent* TriggerBox;
+	
+	// Treadmill system - no spawning logic needed
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacles")
 	TArray<TSubclassOf<AObstacle>> ObstacleClasses;
@@ -65,6 +66,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacles")
 	float MinObstacleSpacing = 300.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Obstacles")
+	float ObstacleSpawnHeight = 50.0f;
 
 	// Simplified Spawn Point System - no TArrays for now
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawning")
@@ -77,15 +81,27 @@ protected:
 	// Simplified Horizon Settings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Horizon")
 	int32 BuildingsPerSide = 3;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Horizon")
+	float BuildingSpacing = 600.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Horizon")
+	float BuildingDistanceFromTrack = 2000.0f;
+	
+	// Treadmill system - segments are recycled, not spawned
+	
+	// Debug Visualization Settings
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+	float DebugDrawDuration = 30.0f;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+	float DebugLineThickness = 3.0f;
 
 	// Coin Run Patterns
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Coins")
 	TSubclassOf<class ACoin> CoinClass;
 
 private:
-	UFUNCTION()
-	void OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, 
-		UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
 	TArray<AActor*> SpawnedObstacles;
+	
 };

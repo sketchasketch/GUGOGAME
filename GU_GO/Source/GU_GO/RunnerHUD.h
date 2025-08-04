@@ -17,6 +17,18 @@ public:
 	void UpdateDistance(float NewDistance);
 
 	UFUNCTION(BlueprintCallable, Category = "HUD")
+	void UpdateCoins(int32 NewCoins);
+
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	void UpdateSteps(int32 NewSteps);
+
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	void ShowPauseMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	void HidePauseMenu();
+
+	UFUNCTION(BlueprintCallable, Category = "HUD")
 	void ShowGameOver();
 
 	UFUNCTION(BlueprintCallable, Category = "HUD")
@@ -28,6 +40,18 @@ protected:
 
 	UPROPERTY(BlueprintReadWrite, Category = "UI")
 	class UTextBlock* DistanceText;
+
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UTextBlock* CoinsText;
+
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UTextBlock* StepsText;
+
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UButton* PauseButton;
+
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UUserWidget* PauseMenuWidget;
 
 	UPROPERTY(BlueprintReadWrite, Category = "UI")
 	class UVerticalBox* GameOverPanel;
@@ -49,4 +73,7 @@ private:
 
 	UFUNCTION()
 	void OnMainMenuClicked();
+
+	UFUNCTION()
+	void OnPauseClicked();
 };

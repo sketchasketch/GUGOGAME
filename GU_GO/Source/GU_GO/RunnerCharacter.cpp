@@ -18,25 +18,30 @@ ARunnerCharacter::ARunnerCharacter()
 	SpringArmComponent->TargetArmLength = 600.0f;
 	SpringArmComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 200.0f));
 	SpringArmComponent->SetRelativeRotation(FRotator(-25.0f, 0.0f, 0.0f));
+	// Lock camera rotation for stable treadmill experience
 	SpringArmComponent->bUsePawnControlRotation = false;
 	SpringArmComponent->bInheritPitch = false;
 	SpringArmComponent->bInheritYaw = false;
 	SpringArmComponent->bInheritRoll = false;
+	SpringArmComponent->bDoCollisionTest = false; // Prevent camera collision issues
+	// Gentle camera lag for smooth treadmill experience
 	SpringArmComponent->bEnableCameraLag = true;
-	SpringArmComponent->CameraLagSpeed = 3.0f;
+	SpringArmComponent->CameraLagSpeed = 8.0f; // Less aggressive than original 3.0f
 
 	// Set up the camera component
 	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
 	CameraComponent->SetupAttachment(SpringArmComponent);
 
-	// Set up obstacle collision box (handles all obstacle detection)
+	// Set up obstacle collision box (handles ONLY obstacle detection, NOT track spawning)
 	SlideCollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("ObstacleCollisionBox"));
 	SlideCollisionBox->SetupAttachment(RootComponent);
 	SlideCollisionBox->SetBoxExtent(FVector(40.0f, 40.0f, 90.0f)); // Full height for standing
 	SlideCollisionBox->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f)); // Center on capsule
-	SlideCollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	SlideCollisionBox->SetCollisionObjectType(ECollisionChannel::ECC_Pawn);
-	SlideCollisionBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Block);
+	SlideCollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	SlideCollisionBox->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
+	SlideCollisionBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	SlideCollisionBox->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block); // Only block obstacles
+	// CRITICAL: This box should NEVER respond to ECC_Pawn channel (track spawning)
 	
 	// Make main capsule ignore obstacles - only handles movement and ground
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Ignore);
@@ -64,26 +69,74 @@ void ARunnerCharacter::BeginPlay()
 	CurrentLane = 1;
 	TargetLanePosition = 0.0f;
 	
-	// Debug character setup
-	UE_LOG(LogTemp, Warning, TEXT("Character BeginPlay - Position: %s"), *GetActorLocation().ToString());
-	UE_LOG(LogTemp, Warning, TEXT("Character BeginPlay - Rotation: %s"), *GetActorRotation().ToString());
-	UE_LOG(LogTemp, Warning, TEXT("Character BeginPlay - Forward Vector: %s"), *GetActorForwardVector().ToString());
+	// Store starting position for treadmill system - player never leaves this spot
+	StartingPosition = GetActorLocation();
 	
-	// Ensure we have the correct default mesh location (in case it changed in Blueprint)
+	// Store default mesh location (in case it changed in Blueprint)
 	if (GetMesh())
 	{
 		DefaultMeshRelativeLocation = GetMesh()->GetRelativeLocation();
-		UE_LOG(LogTemp, Warning, TEXT("Character BeginPlay - Default mesh location: %s"), *DefaultMeshRelativeLocation.ToString());
 	}
+}
+
+void ARunnerCharacter::CheckWorldShift()
+{
+	// DISABLED: World origin rebasing is broken - shifting every frame in infinite loop
+	// The player's reported position doesn't update after shift, causing repeated shifts
+	// This needs a different implementation approach
+	return;
+	
+	// Original broken code:
+	// if (GetActorLocation().X > WorldShiftDistance)
+	// {
+	//     FVector ShiftAmount(-WorldShiftAmount, 0.0f, 0.0f);
+	//     GetWorld()->SetNewWorldOrigin(GetWorld()->OriginLocation + FIntVector(ShiftAmount));
+	// }
 }
 
 void ARunnerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Forward movement
+	// TREADMILL SYSTEM: Player animation runs but stays locked to starting position
 	FVector ForwardDirection = GetActorForwardVector();
 	AddMovementInput(ForwardDirection, 1.0f);
+	
+	// LOCK PLAYER X POSITION: Stay at starting X, allow Y (lanes) and Z (jumping)
+	FVector CurrentPos = GetActorLocation();
+	FVector LockedPosition = FVector(StartingPosition.X, CurrentPos.Y, CurrentPos.Z);
+	SetActorLocation(LockedPosition);
+	
+	// Track distance and steps
+	float DistanceThisFrame = GetVelocity().Size() * DeltaTime;
+	TotalDistanceRun += DistanceThisFrame;
+	
+	// Count steps based on configurable step distance
+	static float StepAccumulator = 0.0f;
+	// Always count steps - removed condition (bIsGrounded && !bIsSliding)
+	{
+		StepAccumulator += DistanceThisFrame;
+		if (StepAccumulator >= StepDistance)
+		{
+			StepCount++;
+			StepAccumulator = 0.0f;
+			
+			// DEBUG: Log at configured frequency to track progress
+			if (StepCount % StepLogFrequency == 0)
+			{
+				UE_LOG(LogTemp, Error, TEXT("STEP COUNT: %d at X=%f"), StepCount, GetActorLocation().X);
+			}
+			
+			// CRITICAL: Log heavily when past critical zone threshold
+			if (StepCount > CriticalZoneSteps)
+			{
+				UE_LOG(LogTemp, Error, TEXT("CRITICAL ZONE: Step %d at X=%f"), StepCount, GetActorLocation().X);
+			}
+		}
+	}
+	
+	// World origin shifting disabled - UE5 can handle large coordinates without issues
+	// CheckWorldShift();
 
 	// Lane switching
 	FVector CurrentLocation = GetActorLocation();
@@ -116,12 +169,19 @@ void ARunnerCharacter::Tick(float DeltaTime)
 	}
 
 	// Update animation variables every frame
-	AnimSpeed = GetVelocity().Size();
+	float CurrentSpeed = GetVelocity().Size();
+	AnimSpeed = CurrentSpeed;
+	
+	// Calculate animation speed multiplier to prevent foot sliding
+	// Scale animation playback rate based on actual movement speed vs configured forward speed
+	AnimSpeedMultiplier = CurrentSpeed > 0.0f ? CurrentSpeed / ForwardSpeed : 1.0f;
+	
 	bIsGrounded = GetCharacterMovement()->IsMovingOnGround();
 	bIsFalling = GetCharacterMovement()->IsFalling();
 	VerticalVelocity = GetVelocity().Z;
 	
 	// Update dash state
+	bool WasDashing = bIsDashing;
 	bIsDashing = bIsDashingLeft || bIsDashingRight;
 	if (bIsDashingLeft)
 		DashDirection = -1.0f;
@@ -129,6 +189,14 @@ void ARunnerCharacter::Tick(float DeltaTime)
 		DashDirection = 1.0f;
 	else
 		DashDirection = 0.0f;
+	
+	// Log when dash state changes
+	if (bIsDashing != WasDashing)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("DASH STATE CHANGE: bIsDashing=%s, DashDirection=%f, Left=%s, Right=%s"), 
+			bIsDashing ? TEXT("TRUE") : TEXT("FALSE"), DashDirection,
+			bIsDashingLeft ? TEXT("TRUE") : TEXT("FALSE"), bIsDashingRight ? TEXT("TRUE") : TEXT("FALSE"));
+	}
 	
 	// Clear input flags after animation system has had a chance to read them
 	// Only clear if we've actually started the action
@@ -155,11 +223,9 @@ void ARunnerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 
 void ARunnerCharacter::MoveLeft()
 {
-	// Can't change lanes while sliding
+	// Can dash mid-air, but not while sliding
 	if (bIsSliding) return;
 	
-	// Debug: Print to screen
-	UE_LOG(LogTemp, Warning, TEXT("MoveLeft called! Current Lane: %d"), CurrentLane);
 	
 	if (CurrentLane > 0)
 	{
@@ -170,18 +236,16 @@ void ARunnerCharacter::MoveLeft()
 		bIsDashingLeft = true;
 		bIsDashingRight = false;
 		DashTimer = DashDuration;
+		UE_LOG(LogTemp, Warning, TEXT("DASH LEFT: bIsDashing=%s, DashDirection=%f"), bIsDashing ? TEXT("TRUE") : TEXT("FALSE"), DashDirection);
 		
-		UE_LOG(LogTemp, Warning, TEXT("Moving to lane %d, Target Y: %f"), CurrentLane, TargetLanePosition);
 	}
 }
 
 void ARunnerCharacter::MoveRight()
 {
-	// Can't change lanes while sliding
+	// Can dash mid-air, but not while sliding
 	if (bIsSliding) return;
 	
-	// Debug: Print to screen
-	UE_LOG(LogTemp, Warning, TEXT("MoveRight called! Current Lane: %d"), CurrentLane);
 	
 	if (CurrentLane < 2)
 	{
@@ -192,8 +256,8 @@ void ARunnerCharacter::MoveRight()
 		bIsDashingRight = true;
 		bIsDashingLeft = false;
 		DashTimer = DashDuration;
+		UE_LOG(LogTemp, Warning, TEXT("DASH RIGHT: bIsDashing=%s, DashDirection=%f"), bIsDashing ? TEXT("TRUE") : TEXT("FALSE"), DashDirection);
 		
-		UE_LOG(LogTemp, Warning, TEXT("Moving to lane %d, Target Y: %f"), CurrentLane, TargetLanePosition);
 	}
 }
 
@@ -204,16 +268,19 @@ bool ARunnerCharacter::IsInAir() const
 
 void ARunnerCharacter::StartJump()
 {
-	if (!bIsSliding && GetCharacterMovement()->IsMovingOnGround())
+	// Cannot jump while sliding or dashing
+	if (bIsSliding || bIsDashing) return;
+	
+	if (GetCharacterMovement()->IsMovingOnGround())
 	{
 		bJumpPressed = true;
 		Jump();
-		UE_LOG(LogTemp, Warning, TEXT("Jump started!"));
 	}
 }
 
 void ARunnerCharacter::StartSlide()
 {
+	// Can slide while dashing, but must be on ground and not already sliding
 	if (!bIsSliding && GetCharacterMovement()->IsMovingOnGround())
 	{
 		bSlidePressed = true;
@@ -224,7 +291,6 @@ void ARunnerCharacter::StartSlide()
 		SlideCollisionBox->SetBoxExtent(FVector(40.0f, 40.0f, 25.0f)); // Short box for sliding
 		SlideCollisionBox->SetRelativeLocation(FVector(0.0f, 0.0f, -65.0f)); // Move down
 		
-		UE_LOG(LogTemp, Warning, TEXT("Slide started - Using slide collision box"));
 	}
 }
 
@@ -238,7 +304,6 @@ void ARunnerCharacter::StopSlide()
 		SlideCollisionBox->SetBoxExtent(FVector(40.0f, 40.0f, 90.0f)); // Full height for standing
 		SlideCollisionBox->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f)); // Center on capsule
 		
-		UE_LOG(LogTemp, Warning, TEXT("Slide stopped - Using normal collision capsule"));
 	}
 }
 

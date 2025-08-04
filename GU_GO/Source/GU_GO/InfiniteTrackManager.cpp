@@ -1,13 +1,12 @@
 #include "InfiniteTrackManager.h"
 #include "TrackSegment.h"
-#include "Collectible.h"
-#include "Obstacle.h"
 #include "RunnerCharacter.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 
 AInfiniteTrackManager::AInfiniteTrackManager()
 {
+	// Enable Tick for treadmill system
 	PrimaryActorTick.bCanEverTick = true;
 }
 
@@ -15,311 +14,155 @@ void AInfiniteTrackManager::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	// Start spawning forward from the manager's location
-	NextSpawnLocation = GetActorLocation();
+	UE_LOG(LogTemp, Warning, TEXT("=== TREADMILL INFINITE TRACK MANAGER INITIALIZED ==="));
 	
+	// Find player character reference
+	FindPlayerCharacter();
 	
-	UE_LOG(LogTemp, Warning, TEXT("InfiniteTrackManager starting at location: %s"), 
-		*NextSpawnLocation.ToString());
+	// Create fixed pool of segments
+	CreateSegmentPool();
 	
-	// Spawn starting segment under the player
-	SpawnStartingSegment();
+	UE_LOG(LogTemp, Warning, TEXT("Treadmill system ready. Pool size: %d segments"), SegmentPool.Num());
+}
+
+void AInfiniteTrackManager::ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
+{
+	Super::ApplyWorldOffset(InOffset, bWorldShift);
 	
-	// Spawn initial segments ahead of the player
-	SpawnInitialSegments();
-	
-	UE_LOG(LogTemp, Warning, TEXT("InfiniteTrackManager spawned %d initial segments"), InitialSegmentCount);
+	// DISABLED: No world origin shifting to prevent coordinate corruption
 }
 
 void AInfiniteTrackManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	// Check if we need to spawn more segments
-	ARunnerCharacter* Player = Cast<ARunnerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
-	if (Player)
+	// Ensure we have player reference
+	if (!PlayerCharacter.IsValid())
 	{
-		FVector PlayerLocation = Player->GetActorLocation();
-		
-		// Calculate how far ahead we want to keep spawning  
-		float DesiredSpawnAheadDistance = SegmentSpawnDistance * 5; // Keep 5 segments ahead
-		float DistancePlayerToNextSpawn = NextSpawnLocation.X - PlayerLocation.X;
-		
-		UE_LOG(LogTemp, Warning, TEXT("Track Check: Player=%f, NextSpawn=%f, Distance=%f, Desired=%f, Active=%d"), 
-			PlayerLocation.X, NextSpawnLocation.X, DistancePlayerToNextSpawn, DesiredSpawnAheadDistance, ActiveSegments.Num());
-		
-		// Spawn new segment if we're not far enough ahead
-		if (DistancePlayerToNextSpawn < DesiredSpawnAheadDistance)
-		{
-			SpawnNextSegment();
-			UE_LOG(LogTemp, Warning, TEXT("Spawning new segment. Player at X=%f, NextSpawn at X=%f"), 
-				PlayerLocation.X, NextSpawnLocation.X);
-		}
+		FindPlayerCharacter();
+		if (!PlayerCharacter.IsValid()) return; // No player found yet
 	}
 	
-	// Cleanup old segments
-	CleanupOldSegments();
+	// Treadmill system: move track backward and recycle segments
+	MoveTreadmill(DeltaTime);
+	RecycleSegmentsBehindPlayer();
 }
 
-void AInfiniteTrackManager::SpawnStartingSegment()
+void AInfiniteTrackManager::CreateSegmentPool()
 {
-	if (!TrackSegmentClass) return;
-
-	// Spawn segment centered under player
-	FVector StartingLocation = GetActorLocation();
-
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = this;
-	
-	ATrackSegment* StartingSegment = GetWorld()->SpawnActor<ATrackSegment>(
-		TrackSegmentClass,
-		StartingLocation,
-		FRotator::ZeroRotator,
-		SpawnParams
-	);
-
-	if (StartingSegment)
-	{
-		ActiveSegments.Add(StartingSegment);
-		NextSpawnLocation = StartingSegment->GetEndLocation();
-		UE_LOG(LogTemp, Warning, TEXT("Spawned starting segment under player"));
-	}
-}
-
-void AInfiniteTrackManager::SpawnInitialSegments()
-{
-	for (int32 i = 0; i < InitialSegmentCount; i++)
-	{
-		SpawnNextSegment();
-	}
-}
-
-void AInfiniteTrackManager::SpawnNextSegment()
-{
-	if (!TrackSegmentClass) 
+	if (!TrackSegmentClass)
 	{
 		UE_LOG(LogTemp, Error, TEXT("TrackSegmentClass is not set!"));
 		return;
 	}
 	
-	// Log segment count but don't enforce arbitrary limit - cleanup should handle this
-	if (ActiveSegments.Num() >= MaxActiveSegments) 
-	{
-		UE_LOG(LogTemp, Error, TEXT("WARNING: %d segments active, cleanup might not be working!"), ActiveSegments.Num());
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("Spawning segment %d at location: %s"), ActiveSegments.Num() + 1, *NextSpawnLocation.ToString());
-
-	// Spawn new segment
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = this;
+	// Create fixed pool of segments
+	FVector SpawnLocation = GetActorLocation();
 	
-	ATrackSegment* NewSegment = GetWorld()->SpawnActor<ATrackSegment>(
-		TrackSegmentClass,
-		NextSpawnLocation,
-		FRotator::ZeroRotator,
-		SpawnParams
-	);
-
-	if (NewSegment)
+	for (int32 i = 0; i < SegmentPoolSize; i++)
 	{
-		ActiveSegments.Add(NewSegment);
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = this;
 		
-		UE_LOG(LogTemp, Warning, TEXT("Successfully spawned segment at: %s"), 
-			*NewSegment->GetActorLocation().ToString());
+		ATrackSegment* NewSegment = GetWorld()->SpawnActor<ATrackSegment>(
+			TrackSegmentClass,
+			SpawnLocation,
+			FRotator::ZeroRotator,
+			SpawnParams
+		);
 		
-		// Select and apply pattern
-		FTrackPattern SelectedPattern = SelectPatternForDifficulty(TotalDistanceGenerated);
-		SpawnPatternOnSegment(NewSegment, SelectedPattern);
-		
-		// Update next spawn location and total distance
-		NextSpawnLocation = NewSegment->GetEndLocation();
-		TotalDistanceGenerated += NewSegment->SegmentLength;
-		
-		UE_LOG(LogTemp, Warning, TEXT("Next spawn location updated to %s"), *NextSpawnLocation.ToString());
+		if (NewSegment)
+		{
+			SegmentPool.Add(NewSegment);
+			SpawnLocation += FVector(NewSegment->SegmentLength, 0.0f, 0.0f);
+			
+			UE_LOG(LogTemp, Warning, TEXT("POOL_SEGMENT_CREATED: Index=%d, Position=%.1f"), 
+				i, NewSegment->GetActorLocation().X);
+		}
 	}
 }
 
-void AInfiniteTrackManager::CleanupOldSegments()
+void AInfiniteTrackManager::MoveTreadmill(float DeltaTime)
 {
-	ARunnerCharacter* Player = Cast<ARunnerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0));
-	if (!Player) return;
-
-	FVector PlayerLocation = Player->GetActorLocation();
-
-	// Check each segment and remove old ones
-	for (int32 i = ActiveSegments.Num() - 1; i >= 0; i--)
+	// Move all segments backward at treadmill speed
+	FVector BackwardMovement = FVector(-TreadmillSpeed * DeltaTime, 0.0f, 0.0f);
+	
+	for (ATrackSegment* Segment : SegmentPool)
 	{
-		if (ActiveSegments[i])
+		if (Segment && IsValid(Segment))
 		{
-			float Distance = PlayerLocation.X - ActiveSegments[i]->GetActorLocation().X;
-			
-			if (Distance > SegmentDestroyDistance)
+			Segment->AddActorWorldOffset(BackwardMovement);
+		}
+	}
+}
+
+void AInfiniteTrackManager::RecycleSegmentsBehindPlayer()
+{
+	if (SegmentPool.Num() == 0) return;
+	
+	float PlayerX = GetPlayerXPosition();
+	
+	// Check if the segment at NextRecycleIndex is behind the player
+	ATrackSegment* SegmentToCheck = SegmentPool[NextRecycleIndex];
+	if (SegmentToCheck && IsValid(SegmentToCheck))
+	{
+		float SegmentEndX = SegmentToCheck->GetEndLocation().X;
+		
+		// If segment passed behind player by RecycleDistance, move it to front
+		if (PlayerX - SegmentEndX > RecycleDistance)
+		{
+			ATrackSegment* FrontSegment = GetFrontmostSegment();
+			if (FrontSegment)
 			{
-				UE_LOG(LogTemp, Warning, TEXT("Destroying segment: Player X=%f, Segment X=%f, Distance=%f"), 
-					PlayerLocation.X, ActiveSegments[i]->GetActorLocation().X, Distance);
-				ActiveSegments[i]->DestroySegment();
-				ActiveSegments.RemoveAt(i);
+				FVector NewPosition = FrontSegment->GetEndLocation();
+				SegmentToCheck->SetActorLocation(NewPosition);
+				
+				UE_LOG(LogTemp, Warning, TEXT("RECYCLED_SEGMENT: Index=%d, From=%.1f To=%.1f"), 
+					NextRecycleIndex, SegmentEndX, NewPosition.X);
+				
+				// Move to next segment in pool
+				NextRecycleIndex = (NextRecycleIndex + 1) % SegmentPool.Num();
 			}
 		}
-		else
+	}
+}
+
+ATrackSegment* AInfiniteTrackManager::GetFrontmostSegment()
+{
+	ATrackSegment* FrontmostSegment = nullptr;
+	float FurthestX = -FLT_MAX;
+	
+	for (ATrackSegment* Segment : SegmentPool)
+	{
+		if (Segment && IsValid(Segment))
 		{
-			// Remove null entries
-			ActiveSegments.RemoveAt(i);
+			float SegmentEndX = Segment->GetEndLocation().X;
+			if (SegmentEndX > FurthestX)
+			{
+				FurthestX = SegmentEndX;
+				FrontmostSegment = Segment;
+			}
+		}
+	}
+	
+	return FrontmostSegment;
+}
+
+// Helper Functions
+void AInfiniteTrackManager::FindPlayerCharacter()
+{
+	if (!PlayerCharacter.IsValid())
+	{
+		TArray<AActor*> FoundActors;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), ARunnerCharacter::StaticClass(), FoundActors);
+		if (FoundActors.Num() > 0)
+		{
+			PlayerCharacter = Cast<ARunnerCharacter>(FoundActors[0]);
 		}
 	}
 }
 
-FTrackPattern AInfiniteTrackManager::SelectPatternForDifficulty(float CurrentDistance)
+float AInfiniteTrackManager::GetPlayerXPosition()
 {
-	// Get current difficulty settings
-	FDifficultySettings CurrentDifficulty = GetCurrentDifficulty();
-	
-	// Filter available patterns by distance requirement
-	TArray<FTrackPattern> ValidPatterns;
-	for (const FTrackPattern& Pattern : AvailablePatterns)
-	{
-		if (Pattern.MinDistanceToUse <= CurrentDistance)
-		{
-			ValidPatterns.Add(Pattern);
-		}
-	}
-	
-	// If no valid patterns, return empty pattern
-	if (ValidPatterns.Num() == 0)
-	{
-		return FTrackPattern();
-	}
-	
-	// Weight-based selection
-	float TotalWeight = 0.0f;
-	for (const FTrackPattern& Pattern : ValidPatterns)
-	{
-		TotalWeight += Pattern.SpawnWeight;
-	}
-	
-	float RandomValue = FMath::RandRange(0.0f, TotalWeight);
-	float CurrentWeight = 0.0f;
-	
-	for (const FTrackPattern& Pattern : ValidPatterns)
-	{
-		CurrentWeight += Pattern.SpawnWeight;
-		if (RandomValue <= CurrentWeight)
-		{
-			return Pattern;
-		}
-	}
-	
-	// Fallback to first valid pattern
-	return ValidPatterns[0];
-}
-
-void AInfiniteTrackManager::SpawnPatternOnSegment(ATrackSegment* Segment, const FTrackPattern& Pattern)
-{
-	if (!Segment) return;
-	
-	FVector SegmentLocation = Segment->GetActorLocation();
-	
-	// Spawn obstacles
-	for (int32 i = 0; i < Pattern.ObstacleTypes.Num() && i < Pattern.ObstaclePositions.Num(); i++)
-	{
-		if (Pattern.ObstacleTypes[i])
-		{
-			FVector SpawnLocation = SegmentLocation + Pattern.ObstaclePositions[i];
-			SpawnLocation.Z += Pattern.ElevationOffset;
-			
-			GetWorld()->SpawnActor<AObstacle>(Pattern.ObstacleTypes[i], SpawnLocation, FRotator::ZeroRotator);
-		}
-	}
-	
-	// Spawn coins
-	for (const FVector& CoinPosition : Pattern.CoinPositions)
-	{
-		if (CoinClass)
-		{
-			FVector SpawnLocation = SegmentLocation + CoinPosition;
-			SpawnLocation.Z += Pattern.ElevationOffset;
-			
-			GetWorld()->SpawnActor<ACollectible>(CoinClass, SpawnLocation, FRotator::ZeroRotator);
-		}
-	}
-	
-	// Spawn simple horizon buildings for this segment
-	Segment->SpawnSimpleHorizonBuildings();
-	UE_LOG(LogTemp, Warning, TEXT("Spawned simple horizon buildings for segment at: %s"), *SegmentLocation.ToString());
-}
-
-void AInfiniteTrackManager::SpawnCoinArc(FVector StartLocation, FVector EndLocation, int32 CoinCount)
-{
-	SpawnCoinsInArc(StartLocation, EndLocation, CoinCount, 200.0f);
-}
-
-FDifficultySettings AInfiniteTrackManager::GetCurrentDifficulty() const
-{
-	// Find the appropriate difficulty setting based on distance
-	for (int32 i = DifficultyProgression.Num() - 1; i >= 0; i--)
-	{
-		if (TotalDistanceGenerated >= DifficultyProgression[i].DistanceRequired)
-		{
-			return DifficultyProgression[i];
-		}
-	}
-	
-	// Return default difficulty if none found
-	FDifficultySettings DefaultDifficulty;
-	DefaultDifficulty.DistanceRequired = 0.0f;
-	DefaultDifficulty.ObstacleSpawnChance = 0.3f;
-	DefaultDifficulty.CoinSpawnChance = 0.7f;
-	DefaultDifficulty.MaxObstaclesPerSegment = 2;
-	return DefaultDifficulty;
-}
-
-void AInfiniteTrackManager::SpawnCoinsInArc(FVector Start, FVector End, int32 Count, float ArcHeight)
-{
-	if (!CoinClass || Count <= 0) return;
-	
-	for (int32 i = 0; i < Count; i++)
-	{
-		float Progress = (float)i / (float)(Count - 1);
-		
-		// Calculate arc position
-		FVector HorizontalPos = FMath::Lerp(Start, End, Progress);
-		float ArcProgress = 4.0f * Progress * (1.0f - Progress); // Parabolic arc
-		float ZOffset = ArcHeight * ArcProgress;
-		
-		FVector CoinLocation = HorizontalPos;
-		CoinLocation.Z = FMath::Lerp(Start.Z, End.Z, Progress) + ZOffset;
-		
-		// Spawn coin
-		ACollectible* NewCoin = GetWorld()->SpawnActor<ACollectible>(CoinClass, CoinLocation, FRotator::ZeroRotator);
-		if (NewCoin)
-		{
-			NewCoin->bIsInJumpArc = true;
-		}
-	}
-}
-
-bool AInfiniteTrackManager::ShouldSpawnObstacle() const
-{
-	FDifficultySettings CurrentDifficulty = GetCurrentDifficulty();
-	return FMath::RandRange(0.0f, 1.0f) < CurrentDifficulty.ObstacleSpawnChance;
-}
-
-bool AInfiniteTrackManager::ShouldSpawnCoins() const
-{
-	FDifficultySettings CurrentDifficulty = GetCurrentDifficulty();
-	return FMath::RandRange(0.0f, 1.0f) < CurrentDifficulty.CoinSpawnChance;
-}
-
-TSubclassOf<AObstacle> AInfiniteTrackManager::SelectRandomObstacle() const
-{
-	FDifficultySettings CurrentDifficulty = GetCurrentDifficulty();
-	
-	if (CurrentDifficulty.AvailableObstacles.Num() == 0)
-	{
-		return nullptr;
-	}
-	
-	int32 RandomIndex = FMath::RandRange(0, CurrentDifficulty.AvailableObstacles.Num() - 1);
-	return CurrentDifficulty.AvailableObstacles[RandomIndex];
+	return PlayerCharacter.IsValid() ? PlayerCharacter->GetActorLocation().X : 0.0f;
 }

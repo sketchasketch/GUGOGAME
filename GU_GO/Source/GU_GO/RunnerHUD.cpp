@@ -15,6 +15,12 @@ void URunnerHUD::NativeConstruct()
 		GameOverPanel->SetVisibility(ESlateVisibility::Collapsed);
 	}
 
+	// Hide pause menu initially
+	if (PauseMenuWidget)
+	{
+		PauseMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
+	}
+
 	// Bind button clicks
 	if (RestartButton)
 	{
@@ -24,6 +30,11 @@ void URunnerHUD::NativeConstruct()
 	if (MainMenuButton)
 	{
 		MainMenuButton->OnClicked.AddDynamic(this, &URunnerHUD::OnMainMenuClicked);
+	}
+
+	if (PauseButton)
+	{
+		PauseButton->OnClicked.AddDynamic(this, &URunnerHUD::OnPauseClicked);
 	}
 }
 
@@ -82,7 +93,45 @@ void URunnerHUD::OnRestartClicked()
 
 void URunnerHUD::OnMainMenuClicked()
 {
-	// TODO: Implement main menu navigation
-	// For now, just restart
-	OnRestartClicked();
+	if (ARunnerGameMode* GameMode = Cast<ARunnerGameMode>(UGameplayStatics::GetGameMode(GetWorld())))
+	{
+		GameMode->ReturnToMainMenu();
+	}
+}
+
+void URunnerHUD::UpdateCoins(int32 NewCoins)
+{
+	if (CoinsText)
+	{
+		CoinsText->SetText(FText::Format(NSLOCTEXT("HUD", "Coins", "Coins: {0}"), FText::AsNumber(NewCoins)));
+	}
+}
+
+void URunnerHUD::UpdateSteps(int32 NewSteps)
+{
+	if (StepsText)
+	{
+		StepsText->SetText(FText::Format(NSLOCTEXT("HUD", "Steps", "Steps: {0}"), FText::AsNumber(NewSteps)));
+	}
+}
+
+void URunnerHUD::ShowPauseMenu()
+{
+	if (PauseMenuWidget)
+	{
+		PauseMenuWidget->SetVisibility(ESlateVisibility::Visible);
+	}
+}
+
+void URunnerHUD::HidePauseMenu()
+{
+	if (PauseMenuWidget)
+	{
+		PauseMenuWidget->SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+
+void URunnerHUD::OnPauseClicked()
+{
+	ShowPauseMenu();
 }

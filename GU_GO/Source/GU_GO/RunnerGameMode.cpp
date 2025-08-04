@@ -15,6 +15,8 @@ ARunnerGameMode::ARunnerGameMode()
 	// Set default pawn class to our Runner Character
 	DefaultPawnClass = ARunnerCharacter::StaticClass();
 	
+	// Set default HUD class to use widget-based HUD
+	
 	CurrentGameSpeed = InitialGameSpeed;
 }
 
@@ -22,13 +24,11 @@ void ARunnerGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	UE_LOG(LogTemp, Warning, TEXT("GameMode BeginPlay - Minimal Safe Start"));
+	UE_LOG(LogTemp, Warning, TEXT("GameMode BeginPlay - Auto-starting infinite runner"));
 	
-	// MINIMAL: Just set initial state - don't do complex operations
-	CurrentGameState = EGameState::MainMenu;
-	
-	// Don't access PlayerCharacter or create widgets here - too early in startup
-	UE_LOG(LogTemp, Warning, TEXT("GameMode initialized safely"));
+	// For infinite runner, auto-start the game after brief delay
+	FTimerHandle StartGameTimer;
+	GetWorld()->GetTimerManager().SetTimer(StartGameTimer, this, &ARunnerGameMode::StartGame, 1.0f, false);
 }
 
 void ARunnerGameMode::Tick(float DeltaTime)
@@ -61,6 +61,13 @@ void ARunnerGameMode::Tick(float DeltaTime)
 		if (RunnerHUD)
 		{
 			RunnerHUD->UpdateDistance(DistanceRun);
+			
+			// Update coins and steps from player character
+			if (PlayerCharacter)
+			{
+				RunnerHUD->UpdateCoins(PlayerCharacter->CoinsCollected);
+				RunnerHUD->UpdateSteps(PlayerCharacter->StepCount);
+			}
 		}
 	}
 }

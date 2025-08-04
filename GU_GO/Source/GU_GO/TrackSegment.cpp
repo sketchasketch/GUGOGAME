@@ -1,11 +1,9 @@
 #include "TrackSegment.h"
 #include "Components/StaticMeshComponent.h"
-#include "Components/BoxComponent.h"
 #include "Engine/World.h"
 #include "Obstacle.h"
+#include "InfiniteTrackManager.h"
 #include "RunnerCharacter.h"
-#include "TrackSpawner.h"
-#include "CoinCollectionSystem.h"
 #include "Kismet/GameplayStatics.h"
 
 ATrackSegment::ATrackSegment()
@@ -20,40 +18,34 @@ ATrackSegment::ATrackSegment()
 	FloorMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FloorMesh"));
 	FloorMesh->SetupAttachment(RootComponent);
 	
-	// Create trigger box at the end of the segment
-	TriggerBox = CreateDefaultSubobject<UBoxComponent>(TEXT("TriggerBox"));
-	TriggerBox->SetupAttachment(RootComponent);
-	TriggerBox->SetBoxExtent(FVector(100.0f, LaneWidth * NumberOfLanes / 2, 200.0f));
-	TriggerBox->SetRelativeLocation(FVector(SegmentLength - 200.0f, 0.0f, 100.0f));
-	TriggerBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	TriggerBox->SetCollisionResponseToAllChannels(ECR_Ignore);
-	TriggerBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	// Treadmill system - no spawn point tracking needed
 }
 
 void ATrackSegment::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	// Bind overlap event
-	TriggerBox->OnComponentBeginOverlap.AddDynamic(this, &ATrackSegment::OnTriggerBeginOverlap);
+	// Spawn obstacles for this segment
+	SpawnObstacles();
 	
-	// Set floor mesh scale based on segment size
-	if (FloorMesh && FloorMesh->GetStaticMesh())
+	// Spawn horizon buildings if enabled
+	if (bSpawnHorizonBuildings)
 	{
-		float MeshSizeX = 100.0f; // Default cube size
-		float MeshSizeY = 100.0f;
-		
-		float ScaleX = SegmentLength / MeshSizeX;
-		float ScaleY = (LaneWidth * NumberOfLanes) / MeshSizeY;
-		float ScaleZ = 0.1f; // Thin floor
-		
-		FloorMesh->SetWorldScale3D(FVector(ScaleX, ScaleY, ScaleZ));
+		SpawnSimpleHorizonBuildings();
 	}
+	
+	// Simple debug logging
+	FVector StartLoc = GetActorLocation();
+	FVector EndLoc = GetEndLocation();
+	UE_LOG(LogTemp, Warning, TEXT("TRACK_SEGMENT: Created at X=%.1f, End=%.1f, Length=%.1f"), 
+		StartLoc.X, EndLoc.X, SegmentLength);
 }
 
 void ATrackSegment::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	// Treadmill system - movement handled by InfiniteTrackManager
 }
 
 void ATrackSegment::SpawnObstacles()
@@ -91,7 +83,7 @@ void ATrackSegment::SpawnObstacles()
 
 		if (ObstacleClass)
 		{
-			FVector SpawnLocation = GetActorLocation() + FVector(XPosition, YPosition, 50.0f);
+			FVector SpawnLocation = GetActorLocation() + FVector(XPosition, YPosition, ObstacleSpawnHeight);
 			FRotator SpawnRotation = GetActorRotation();
 
 			AObstacle* NewObstacle = GetWorld()->SpawnActor<AObstacle>(ObstacleClass, SpawnLocation, SpawnRotation);
@@ -122,24 +114,6 @@ void ATrackSegment::DestroySegment()
 	Destroy();
 }
 
-void ATrackSegment::OnTriggerBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	if (ARunnerCharacter* Runner = Cast<ARunnerCharacter>(OtherActor))
-	{
-		// Notify track spawner to spawn next segment
-		TArray<AActor*> FoundActors;
-		UGameplayStatics::GetAllActorsOfClass(GetWorld(), ATrackSpawner::StaticClass(), FoundActors);
-		
-		if (FoundActors.Num() > 0)
-		{
-			if (ATrackSpawner* Spawner = Cast<ATrackSpawner>(FoundActors[0]))
-			{
-				Spawner->SpawnNextSegment();
-			}
-		}
-	}
-}
 
 void ATrackSegment::SpawnSimpleHorizonBuildings()
 {
@@ -153,11 +127,13 @@ void ATrackSegment::SpawnSimpleHorizonBuildings()
 	for (int32 i = 0; i < BuildingsPerSide; i++)
 	{
 		// Left side buildings
-		FVector LeftSpawnLocation = SegmentLocation + FVector(i * 600.0f, -2000.0f, 0.0f);
+		FVector LeftSpawnLocation = SegmentLocation + FVector(i * BuildingSpacing, -BuildingDistanceFromTrack, 0.0f);
 		GetWorld()->SpawnActor<AActor>(BasicBuildingAsset, LeftSpawnLocation, FRotator::ZeroRotator);
 		
 		// Right side buildings  
-		FVector RightSpawnLocation = SegmentLocation + FVector(i * 600.0f, 2000.0f, 0.0f);
+		FVector RightSpawnLocation = SegmentLocation + FVector(i * BuildingSpacing, BuildingDistanceFromTrack, 0.0f);
 		GetWorld()->SpawnActor<AActor>(BasicBuildingAsset, RightSpawnLocation, FRotator::ZeroRotator);
 	}
 }
+
+// Treadmill system - all spawning/recycling logic moved to InfiniteTrackManager
