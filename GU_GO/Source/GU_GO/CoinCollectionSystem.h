@@ -129,6 +129,10 @@ public:
     // Coin Properties
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Coin")
     ECoinType CoinType = ECoinType::Basic;
+    
+    // Sound Effects
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+    class USoundBase* CollectSound;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Coin")
     int32 CoinValue = 10;

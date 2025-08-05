@@ -84,10 +84,13 @@ void ARunnerGameMode::Tick(float DeltaTime)
 			PlayerCharacter->GetCharacterMovement()->MaxWalkSpeed = CurrentGameSpeed;
 		}
 		
-		// Add score based on distance
-		if (FMath::IsNearlyEqual(FMath::Fmod(DistanceRun, 10.0f), 0.0f, 0.5f))
+		// Add score based on distance (more reliable calculation)
+		static float LastScoredDistance = 0.0f;
+		if (DistanceRun >= LastScoredDistance + 10.0f)
 		{
-			AddScore(10);
+			int32 PointsToAdd = ((int32)(DistanceRun / 10.0f) - (int32)(LastScoredDistance / 10.0f)) * 10;
+			AddScore(PointsToAdd);
+			LastScoredDistance = FMath::FloorToFloat(DistanceRun / 10.0f) * 10.0f;
 		}
 		
 		// Update HUD - only Coins, Score, and Steps
@@ -119,6 +122,13 @@ void ARunnerGameMode::GameOver()
 	bIsGameOver = true;
 	CurrentGameState = EGameState::GameOver;
 	
+	// Final score update based on distance
+	int32 FinalDistanceScore = ((int32)(DistanceRun / 10.0f)) * 10;
+	if (FinalDistanceScore > Score)
+	{
+		Score = FinalDistanceScore; // Ensure score matches distance
+	}
+	
 	// Stop player movement
 	if (PlayerCharacter)
 	{
@@ -134,20 +144,7 @@ void ARunnerGameMode::GameOver()
 		RunnerHUD->ShowGameOver();
 	}
 	
-	// Display game over text on screen
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Red, 
-			TEXT("GAME OVER!"), true, FVector2D(4.0f, 4.0f));
-		GEngine->AddOnScreenDebugMessage(-2, 10.0f, FColor::White, 
-			TEXT("Press R to Restart"), true, FVector2D(2.5f, 2.5f));
-		GEngine->AddOnScreenDebugMessage(-3, 10.0f, FColor::Yellow, 
-			FString::Printf(TEXT("Score: %d | Coins: %d | Steps: %d"), 
-				Score, 
-				PlayerCharacter ? PlayerCharacter->CoinsCollected : 0,
-				PlayerCharacter ? PlayerCharacter->StepCount : 0), 
-			true, FVector2D(1.8f, 1.8f));
-	}
+	// Debug messages removed - using UI instead
 	
 	// Enable UI interaction for game over screen
 	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);

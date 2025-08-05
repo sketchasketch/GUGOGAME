@@ -210,7 +210,7 @@ public:
 	bool bSessionPaid = false; // Has player paid for current session?
 
 	UFUNCTION(BlueprintCallable, Category = "Stats")
-	void CollectCoin() { CoinsCollected++; }
+	void CollectCoin();
 	
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void AddGems(int32 Amount) { GemsOwned += Amount; }
@@ -317,6 +317,25 @@ public:
 	// Coin Explosion Settings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Death")
 	TSubclassOf<class ACoin> ExplosionCoinClass;
+	
+	// Sound Effects
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+	class USoundBase* DashLeftSound;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+	class USoundBase* DashRightSound;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+	class USoundBase* JumpSound;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+	class USoundBase* SlideSound;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+	class USoundBase* DeathSound;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+	class USoundBase* CoinSound;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Death")
 	int32 MaxCoinsToSpawn = 20; // Cap for performance

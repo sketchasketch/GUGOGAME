@@ -51,7 +51,7 @@ void UMainMenuWidget::NativeConstruct()
 
 void UMainMenuWidget::OnPlayButtonClicked()
 {
-	UE_LOG(LogTemp, Error, TEXT("***** PLAY BUTTON CLICKED *****"));
+	// Debug: UE_LOG(LogTemp, Error, TEXT("***** PLAY BUTTON CLICKED *****"));
 	
 	// Get game mode and start game
 	if (AMainMenuGameMode* GameMode = Cast<AMainMenuGameMode>(UGameplayStatics::GetGameMode(GetWorld())))

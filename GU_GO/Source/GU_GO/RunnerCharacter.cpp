@@ -11,6 +11,7 @@
 #include "Obstacle.h"
 #include "CoinCollectionSystem.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 
 ARunnerCharacter::ARunnerCharacter()
 {
@@ -91,8 +92,8 @@ void ARunnerCharacter::BeginPlay()
 	}
 	
 	// Enable collision visualization for debugging
-	SlideCollisionBox->SetHiddenInGame(false); // Make collision box visible
-	SlideCollisionBox->SetVisibility(true);
+	SlideCollisionBox->SetHiddenInGame(true); // Hide collision box visual
+	SlideCollisionBox->SetVisibility(false);
 	
 	// Ensure character starts in alive state
 	ResetDeathState();
@@ -353,6 +354,12 @@ void ARunnerCharacter::MoveLeft()
 		DashTimer = DashDuration;
 		UE_LOG(LogTemp, Warning, TEXT("DASH LEFT: bIsDashing=%s, DashDirection=%f"), bIsDashing ? TEXT("TRUE") : TEXT("FALSE"), DashDirection);
 		
+		// Play dash left sound
+		if (DashLeftSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(GetWorld(), DashLeftSound, GetActorLocation());
+		}
+		
 	}
 }
 
@@ -372,6 +379,12 @@ void ARunnerCharacter::MoveRight()
 		bIsDashingLeft = false;
 		DashTimer = DashDuration;
 		UE_LOG(LogTemp, Warning, TEXT("DASH RIGHT: bIsDashing=%s, DashDirection=%f"), bIsDashing ? TEXT("TRUE") : TEXT("FALSE"), DashDirection);
+		
+		// Play dash right sound
+		if (DashRightSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(GetWorld(), DashRightSound, GetActorLocation());
+		}
 		
 	}
 }
@@ -399,6 +412,12 @@ void ARunnerCharacter::StartJump()
 		bJumpPressed = true;
 		Jump();
 		UE_LOG(LogTemp, Warning, TEXT("JUMP_SUCCESS: Initiated jump"));
+		
+		// Play jump sound
+		if (JumpSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(GetWorld(), JumpSound, GetActorLocation());
+		}
 		
 		// Visual feedback
 		if (GEngine)
@@ -435,13 +454,19 @@ void ARunnerCharacter::StartSlide()
 		SlideCollisionBox->SetBoxExtent(FVector(30.0f, 30.0f, 15.0f)); // Very short and narrow for sliding
 		SlideCollisionBox->SetRelativeLocation(FVector(0.0f, 0.0f, -75.0f)); // Move down more
 		
-		UE_LOG(LogTemp, Warning, TEXT("SLIDE_START: Duration=%.1f, CollisionBox=%.1f height"), SlideDuration, 15.0f);
+		// Debug: UE_LOG(LogTemp, Warning, TEXT("SLIDE_START: Duration=%.1f, CollisionBox=%.1f height"), SlideDuration, 15.0f);
 		
-		// Visual feedback
-		if (GEngine)
+		// Play slide sound
+		if (SlideSound)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Blue, TEXT("SLIDING"), true, FVector2D(1.5f, 1.5f));
+			UGameplayStatics::PlaySoundAtLocation(GetWorld(), SlideSound, GetActorLocation());
 		}
+		
+		// Debug: Removed sliding message
+		// if (GEngine)
+		// {
+		//	GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Blue, TEXT("SLIDING"), true, FVector2D(1.5f, 1.5f));
+		// }
 	}
 	else
 	{
@@ -462,10 +487,11 @@ void ARunnerCharacter::StopSlide()
 		UE_LOG(LogTemp, Warning, TEXT("SLIDE_END: Restored to standing collision"));
 		
 		// Visual feedback
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Green, TEXT("SLIDE END"), true, FVector2D(1.5f, 1.5f));
-		}
+		// Debug: Removed slide end message
+		// if (GEngine)
+		// {
+		//	GEngine->AddOnScreenDebugMessage(-1, 0.5f, FColor::Green, TEXT("SLIDE END"), true, FVector2D(1.5f, 1.5f));
+		// }
 	}
 }
 
@@ -586,6 +612,12 @@ void ARunnerCharacter::ProceedWithDeath()
 	// Start ragdoll immediately since we're already in death state
 	EnableRagdoll();
 	
+	// Play death sound
+	if (DeathSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), DeathSound, GetActorLocation());
+	}
+	
 	// Set GameMode to game over state and call GameOver
 	if (ARunnerGameMode* GameMode = Cast<ARunnerGameMode>(UGameplayStatics::GetGameMode(GetWorld())))
 	{
@@ -600,7 +632,7 @@ void ARunnerCharacter::ProceedWithDeath()
 
 void ARunnerCharacter::EnableRagdoll()
 {
-	UE_LOG(LogTemp, Error, TEXT("***** ENABLE RAGDOLL CALLED *****"));
+	// Debug: UE_LOG(LogTemp, Error, TEXT("***** ENABLE RAGDOLL CALLED *****"));
 	
 	// Safety check - don't enable ragdoll during level transitions or if object is invalid
 	if (!IsValid(this) || !GetWorld() || GetWorld()->bIsTearingDown)
@@ -960,6 +992,17 @@ void ARunnerCharacter::DeclineContinue()
 	
 	// Death state should already be set from TriggerDeath(), just proceed with death
 	ProceedWithDeath();
+}
+
+void ARunnerCharacter::CollectCoin()
+{
+	CoinsCollected++;
+	
+	// Play coin collection sound
+	if (CoinSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), CoinSound, GetActorLocation());
+	}
 }
 
 // Distributed Daily Gem System (8-hour intervals)

@@ -10,7 +10,7 @@ void URunnerHUD::NativeConstruct()
 {
 	Super::NativeConstruct();
 	
-	UE_LOG(LogTemp, Error, TEXT("=== RUNNERHUD NATIVE CONSTRUCT CALLED ==="));
+	// Debug: UE_LOG(LogTemp, Error, TEXT("=== RUNNERHUD NATIVE CONSTRUCT CALLED ==="));
 
 	// Hide game over panel initially
 	if (GameOverPanel)

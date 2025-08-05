@@ -120,7 +120,7 @@ void AInfiniteTrackManager::MoveTreadmill(float DeltaTime)
 	static float LastLoggedSpeed = -1.0f;
 	if (FMath::Abs(CurrentSpeed - LastLoggedSpeed) > 10.0f || CurrentSpeed == 0.0f)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("TREADMILL_SPEED: %.1f units/sec"), CurrentSpeed);
+		// Debug: UE_LOG(LogTemp, Warning, TEXT("TREADMILL_SPEED: %.1f units/sec"), CurrentSpeed);
 		LastLoggedSpeed = CurrentSpeed;
 	}
 	

@@ -39,6 +39,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Collectible")
 	bool bIsInJumpArc = false;
+	
+	// Sound Effects
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Audio")
+	class USoundBase* CollectSound;
 
 	UFUNCTION(BlueprintCallable, Category = "Collectible")
 	virtual void OnCollected(class ARunnerCharacter* Player);

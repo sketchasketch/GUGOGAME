@@ -131,14 +131,15 @@ void AObstacle::OnHitByPlayer(ARunnerCharacter* Player)
 	}
 
 	// Visual feedback
-	if (GEngine)
-	{
-		FColor ResultColor = bShouldTriggerGameOver ? FColor::Red : FColor::Green;
-		GEngine->AddOnScreenDebugMessage(-1, 2.0f, ResultColor, 
-			FString::Printf(TEXT("%s: %s"), *GetName(), *ActionResult), true, FVector2D(1.5f, 1.5f));
-	}
+	// Debug: Show feedback message
+	// if (GEngine)
+	// {
+	//	FColor ResultColor = bShouldTriggerGameOver ? FColor::Red : FColor::Green;
+	//	GEngine->AddOnScreenDebugMessage(-1, 2.0f, ResultColor, 
+	//		FString::Printf(TEXT("%s: %s"), *GetName(), *ActionResult), true, FVector2D(1.5f, 1.5f));
+	// }
 
-	UE_LOG(LogTemp, Error, TEXT("OBSTACLE_RESULT: %s - %s"), *GetName(), *ActionResult);
+	// Debug: UE_LOG(LogTemp, Error, TEXT("OBSTACLE_RESULT: %s - %s"), *GetName(), *ActionResult);
 
 	if (bShouldTriggerGameOver)
 	{

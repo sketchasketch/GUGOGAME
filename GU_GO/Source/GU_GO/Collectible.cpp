@@ -6,6 +6,7 @@
 #include "RunnerGameMode.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 
 ACollectible::ACollectible()
 {
@@ -65,6 +66,12 @@ void ACollectible::Tick(float DeltaTime)
 void ACollectible::OnCollected(ARunnerCharacter* Player)
 {
 	if (!Player) return;
+	
+	// Play collection sound
+	if (CollectSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), CollectSound, GetActorLocation());
+	}
 
 	// Add to score based on type and value
 	if (ARunnerGameMode* GameMode = Cast<ARunnerGameMode>(UGameplayStatics::GetGameMode(GetWorld())))
