@@ -46,9 +46,27 @@ void ATrackSegment::BeginPlay()
 		StartLoc.X, EndLoc.X, SegmentLength);
 }
 
+void ATrackSegment::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Disable ticking to prevent crashes during level transitions
+	PrimaryActorTick.bCanEverTick = false;
+	
+	// Clean up spawned objects
+	ClearObstacles();
+	ClearCoins();
+	
+	Super::EndPlay(EndPlayReason);
+}
+
 void ATrackSegment::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	// Safety check: Don't tick if world is being destroyed
+	if (!GetWorld() || GetWorld()->bIsTearingDown)
+	{
+		return;
+	}
 	
 	// Update fading based on player position
 	if (ARunnerCharacter* Player = Cast<ARunnerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0)))
@@ -222,6 +240,12 @@ void ATrackSegment::SpawnSimpleHorizonBuildings()
 
 void ATrackSegment::UpdateFade(float PlayerX)
 {
+	// Safety check: Don't process fade if world is being destroyed
+	if (!GetWorld() || GetWorld()->bIsTearingDown)
+	{
+		return;
+	}
+	
 	// Calculate how far behind the player this segment is
 	float SegmentEndX = GetEndLocation().X;
 	float DistanceBehindPlayer = PlayerX - SegmentEndX;
@@ -257,10 +281,11 @@ void ATrackSegment::UpdateFade(float PlayerX)
 			}
 		}
 		
-		// Apply fade to all spawned obstacles
-		for (AActor* Obstacle : SpawnedObstacles)
+		// Apply fade to all spawned obstacles (safe iteration)
+		for (int32 i = SpawnedObstacles.Num() - 1; i >= 0; i--)
 		{
-			if (Obstacle && IsValid(Obstacle))
+			AActor* Obstacle = SpawnedObstacles[i];
+			if (Obstacle && IsValid(Obstacle) && !Obstacle->IsActorBeingDestroyed())
 			{
 				// Find the mesh component and apply fade
 				if (UStaticMeshComponent* ObstacleMesh = Obstacle->FindComponentByClass<UStaticMeshComponent>())
@@ -272,12 +297,18 @@ void ATrackSegment::UpdateFade(float PlayerX)
 					}
 				}
 			}
+			else
+			{
+				// Remove invalid obstacle from array
+				SpawnedObstacles.RemoveAt(i);
+			}
 		}
 		
-		// Apply fade to all spawned coins
-		for (AActor* Coin : SpawnedCoins)
+		// Apply fade to all spawned coins (safe iteration)
+		for (int32 i = SpawnedCoins.Num() - 1; i >= 0; i--)
 		{
-			if (Coin && IsValid(Coin))
+			AActor* Coin = SpawnedCoins[i];
+			if (Coin && IsValid(Coin) && !Coin->IsActorBeingDestroyed())
 			{
 				// Find the mesh component and apply fade
 				if (UStaticMeshComponent* CoinMesh = Coin->FindComponentByClass<UStaticMeshComponent>())
@@ -288,6 +319,11 @@ void ATrackSegment::UpdateFade(float PlayerX)
 						DynamicMaterial->SetScalarParameterValue(TEXT("Opacity"), FadeAlpha);
 					}
 				}
+			}
+			else
+			{
+				// Remove invalid coin from array
+				SpawnedCoins.RemoveAt(i);
 			}
 		}
 		

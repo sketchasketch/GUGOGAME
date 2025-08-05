@@ -25,6 +25,30 @@ void AInfiniteTrackManager::BeginPlay()
 	UE_LOG(LogTemp, Warning, TEXT("Treadmill system ready. Pool size: %d segments"), SegmentPool.Num());
 }
 
+void AInfiniteTrackManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UE_LOG(LogTemp, Warning, TEXT("InfiniteTrackManager EndPlay - Cleaning up"));
+	
+	// Disable ticking to prevent crashes during level transitions
+	PrimaryActorTick.bCanEverTick = false;
+	
+	// Clear player reference
+	PlayerCharacter = nullptr;
+	
+	// Clean up segment pool
+	for (ATrackSegment* Segment : SegmentPool)
+	{
+		if (Segment && IsValid(Segment))
+		{
+			Segment->ClearObstacles();
+			Segment->ClearCoins();
+		}
+	}
+	SegmentPool.Empty();
+	
+	Super::EndPlay(EndPlayReason);
+}
+
 void AInfiniteTrackManager::ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
 {
 	Super::ApplyWorldOffset(InOffset, bWorldShift);
@@ -35,6 +59,12 @@ void AInfiniteTrackManager::ApplyWorldOffset(const FVector& InOffset, bool bWorl
 void AInfiniteTrackManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	// Safety check: Don't tick if world is being destroyed
+	if (!GetWorld() || GetWorld()->bIsTearingDown)
+	{
+		return;
+	}
 	
 	// Ensure we have player reference
 	if (!PlayerCharacter.IsValid())
