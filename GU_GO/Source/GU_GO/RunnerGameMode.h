@@ -92,6 +92,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
 	TSubclassOf<class UUserWidget> MainMenuWidgetClass;
 
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	class URunnerHUD* GetRunnerHUD() const { return RunnerHUD; }
+
 protected:
 	UPROPERTY()
 	class ARunnerCharacter* PlayerCharacter;

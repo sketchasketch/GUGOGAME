@@ -142,11 +142,11 @@ void AObstacle::OnHitByPlayer(ARunnerCharacter* Player)
 
 	if (bShouldTriggerGameOver)
 	{
-		// Trigger game over
-		if (ARunnerGameMode* GameMode = Cast<ARunnerGameMode>(GetWorld()->GetAuthGameMode()))
-		{
-			GameMode->GameOver();
-		}
+		UE_LOG(LogTemp, Error, TEXT("OBSTACLE: Starting death flow (continue system disabled)"));
+		
+		// DIRECT DEATH - No continue system for now
+		UE_LOG(LogTemp, Error, TEXT("OBSTACLE: Triggering immediate death"));
+		Player->TriggerDeath();
 	}
 }
 

@@ -34,6 +34,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "HUD")
 	void HideGameOver();
 
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	void ShowContinuePrompt(int32 GemsOwned, int32 ContinueCost);
+
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	void HideContinuePrompt();
+
+	UFUNCTION(BlueprintCallable, Category = "HUD")
+	void UpdateGems(int32 NewGems);
+
 protected:
 	UPROPERTY(BlueprintReadWrite, Category = "UI")
 	class UTextBlock* ScoreText;
@@ -42,17 +51,31 @@ protected:
 	class UTextBlock* DistanceText;
 
 	UPROPERTY(BlueprintReadWrite, Category = "UI")
-	class UTextBlock* CoinsText;
+	class UTextBlock* PlayerCoins;
 
 	UPROPERTY(BlueprintReadWrite, Category = "UI")
-	class UTextBlock* StepsText;
+	class UTextBlock* PlayerSteps;
 
 	UPROPERTY(BlueprintReadWrite, Category = "UI")
-	class UButton* PauseButton;
+	class UTextBlock* PlayerGems;
 
 	UPROPERTY(BlueprintReadWrite, Category = "UI")
-	class UUserWidget* PauseMenuWidget;
+	class UButton* GamePauseBtn;
 
+	// Pause Menu UI Elements
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UVerticalBox* PauseMenuPanel;
+
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UButton* ResumeButton;
+
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UButton* RestartFromPauseButton;
+
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UButton* MainMenuFromPauseButton;
+
+	// Game Over UI Elements
 	UPROPERTY(BlueprintReadWrite, Category = "UI")
 	class UVerticalBox* GameOverPanel;
 
@@ -65,6 +88,22 @@ protected:
 	UPROPERTY(BlueprintReadWrite, Category = "UI")
 	class UButton* MainMenuButton;
 
+	// Continue Prompt UI Elements
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UVerticalBox* ContinuePromptPanel;
+
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UTextBlock* ContinuePromptText;
+
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UTextBlock* GemsInfoText;
+
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UButton* ContinueButton;
+
+	UPROPERTY(BlueprintReadWrite, Category = "UI")
+	class UButton* DeclineButton;
+
 	virtual void NativeConstruct() override;
 
 private:
@@ -76,4 +115,20 @@ private:
 
 	UFUNCTION()
 	void OnPauseClicked();
+
+	UFUNCTION()
+	void OnContinueClicked();
+
+	UFUNCTION()
+	void OnDeclineClicked();
+
+	// Pause menu button handlers
+	UFUNCTION()
+	void OnResumeClicked();
+
+	UFUNCTION()
+	void OnRestartFromPauseClicked();
+
+	UFUNCTION()
+	void OnMainMenuFromPauseClicked();
 };

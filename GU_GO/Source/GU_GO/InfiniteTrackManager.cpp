@@ -67,7 +67,22 @@ void AInfiniteTrackManager::CreateSegmentPool()
 	}
 	
 	// Create fixed pool of segments
+	// Start one segment behind player (so there's track under the player at start)
 	FVector SpawnLocation = GetActorLocation();
+	FindPlayerCharacter(); // This populates PlayerCharacter
+	if (PlayerCharacter.IsValid())
+	{
+		// Start first segment behind the player
+		SpawnLocation.X = PlayerCharacter->GetActorLocation().X - 2000.0f; // One segment length behind
+		UE_LOG(LogTemp, Warning, TEXT("TRACK_SPAWN: Starting at X=%.1f (player at X=%.1f)"), 
+			SpawnLocation.X, PlayerCharacter->GetActorLocation().X);
+	}
+	else
+	{
+		// Fallback: start behind origin
+		SpawnLocation.X -= 2000.0f;
+		UE_LOG(LogTemp, Warning, TEXT("TRACK_SPAWN: No player found, starting at X=%.1f"), SpawnLocation.X);
+	}
 	
 	for (int32 i = 0; i < SegmentPoolSize; i++)
 	{
